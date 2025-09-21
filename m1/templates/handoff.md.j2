@@ -1,0 +1,14 @@
+**I**llness severity: {{ 'stable' if 'unstable' not in visit.risks else 'unstable' }}
+
+**P**atient summary: {{ visit.chief_complaint }}.
+
+**A**ction list:
+{% if visit.plan_intents %}
+{% for intent in visit.plan_intents %}- {{ intent.name }}{% if intent.schedule %} → {{ intent.schedule | join(', ') }}{% endif %}
+{% endfor %}
+{% else %}- Awaiting additional directives.
+{% endif %}
+
+**S**ituational awareness & contingencies: escalate if new red flags appear.
+
+**S**ynthesis: confirm with receiving team.
