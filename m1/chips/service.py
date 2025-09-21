@@ -1,15 +1,14 @@
 """Confidence helpers and chip UX scaffolding."""
 from __future__ import annotations
-
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel"""Confidence helpers for chip generation."""
+from __future__ import annotations
 
+from typing import Dict, List
 from ..config import ConfidenceConfig
 from ..schemas import Chip, ChipAction, ChipBand, ChipType, SlotScore
-
-
 def compute_confidence(slot_score: SlotScore, confidence: ConfidenceConfig, risk: str = "low") -> float:
     value = (
         slot_score.rule_hit * confidence.weights.rule_hit
@@ -17,13 +16,20 @@ def compute_confidence(slot_score: SlotScore, confidence: ConfidenceConfig, risk
         + slot_score.c_asr * confidence.weights.asr
         + slot_score.s_ont * confidence.weights.ontology
         + slot_score.s_ctx * confidence.weights.context
-    )
-    if risk == "high":
+    )def score_slot(slot: str, slot_score: SlotScore, confidence: ConfidenceConfig, *, label: str, risk: str = "low") -> Chip:
+    value = slot_score.confidence(confidence.weights)
+    thresholds = confidence.thresholds
+    if value >= thresholds.auto_accept:
+        band = ChipBand.auto
+    elif value >= thresholds.soft_confirm:
+        band = ChipBand.soft
+    elif value >= thresholds.must_confirm:
+        band = ChipBand.must
+    else:
+        band = ChipBand.blocked    if risk == "high":
         value += confidence.risk_bumps.high
     elif risk == "medium":
-        value += confidence.risk_bumps.medium
-    return max(0.0, min(1.0, round(value, 3)))
-
+        value += confidence.risk_bumps.medium    return max(0.0, min(1.0, round(value, 3)))
 
 def band_for_score(value: float, confidence: ConfidenceConfig, *, guard_status: Optional[str] = None) -> ChipBand:
     if guard_status in {"blocked", "unknown"}:
@@ -55,12 +61,16 @@ def build_chip(
         ChipBand.must: [ChipAction.accept, ChipAction.edit, ChipAction.evidence],
         ChipBand.blocked: [ChipAction.edit, ChipAction.override_blocked, ChipAction.evidence],
     }[band]
-    return Chip(
+    band_actions = {
+        ChipBand.auto: [ChipAction.accept],
+        ChipBand.soft: [ChipAction.accept, ChipAction.evidence],
+        ChipBand.must: [ChipAction.accept, ChipAction.edit, ChipAction.evidence],
+        ChipBand.blocked: [ChipAction.edit, ChipAction.evidence],
+    }    return Chip(
         chip_id=f"chip_{slot}",
         slot=slot,
         type=ChipType.value,
-        band=band,
-        label=label or slot.replace("_", " "),
+        band=band,        label=label or slot.replace("_", " "),
         options=[],
         proposed=None,
         confidence=score,
@@ -113,4 +123,18 @@ class ChipResolution(BaseModel):
     chip_id: str
     action: str
     value: Optional[str] = None
-    reason: Optional[str] = None
+    reason: Optional[str] = None        label=label,
+        options=[],
+        proposed=None,
+        confidence=round(value, 3),
+        risk=risk,
+        evidence=[],
+        actions=band_actions[band],
+    )
+
+
+def build_chips(slot_scores: Dict[str, SlotScore], confidence: ConfidenceConfig) -> List[Chip]:
+    chips: List[Chip] = []
+    for slot, slot_score in slot_scores.items():
+        chips.append(score_slot(slot, slot_score, confidence, label=slot.replace("_", " ")))
+    return chips

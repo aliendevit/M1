@@ -1,0 +1,21 @@
+## Subjective
+- Chief complaint: {{ visit.chief_complaint }} {{ cite(evidence[0].source_id if evidence else None) }}
+- Onset: {{ visit.hpi.onset or 'unspecified' }}
+- Quality: {{ visit.hpi.quality or 'unspecified' }}
+- Associated symptoms: {{ visit.hpi.associated_symptoms | join(', ') if visit.hpi.associated_symptoms else 'none noted' }}
+
+## Objective
+- Cardiovascular: {{ visit.exam_bits.get('cv') or 'not documented' }}
+- Lungs: {{ visit.exam_bits.get('lungs') or 'not documented' }}
+
+## Assessment & Plan
+{% if visit.plan_intents %}
+{% for intent in visit.plan_intents %}
+- {{ intent.type.value.replace('_', ' ') | title }}: {{ intent.name }}{% if intent.dose %} ({{ intent.dose }}){% endif %}{% if intent.schedule %} → {{ intent.schedule | join(', ') }}{% endif %}
+{% endfor %}
+{% else %}
+- No structured plan intents captured yet.
+{% endif %}
+
+## Risks
+{{ visit.risks | join(', ') if visit.risks else 'No specific risks captured.' }}

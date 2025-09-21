@@ -1,4 +1,5 @@
 """Plan pack loader and evaluator."""
+"""Utilities for loading YAML plan packs and evaluating guards."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,6 +10,7 @@ import yaml
 
 from ..guards.service import GuardService, evaluate_planpack_with_guards
 from ..schemas import EvidenceChip, PlanpackResponse, VisitJSON
+from ..schemas import PlanpackGuardFlag, PlanpackResponse, PlanpackSuggestion, VisitJSON
 
 
 @dataclass
@@ -45,3 +47,43 @@ def evaluate_planpack(
 ) -> PlanpackResponse:
     guard_service = guard_service or GuardService()
     return evaluate_planpack_with_guards(guard_service, pack, visit, evidence)
+def _guard_label(guard: dict, index: int) -> str:
+    guard_type = next(iter(guard))
+    return guard.get("label", f"guard_{index}_{guard_type}")
+
+
+def _evaluate_guard(guard: dict, visit: VisitJSON, chart_facts: Iterable[str]) -> PlanpackGuardFlag:
+    guard_type = next(iter(guard))
+    if guard_type == "require_absent":
+        prohibited = set(guard[guard_type])
+        conflicts = prohibited.intersection(set(visit.risks))
+        status = "blocked" if conflicts else "clear"
+        detail = ", ".join(sorted(conflicts)) if conflicts else None
+        return PlanpackGuardFlag(guard="require_absent", status=status, detail=detail)
+    if guard_type == "check_allergy":
+        allergies = set(chart_facts)
+        conflicts = allergies.intersection(set(guard[guard_type]))
+        status = "blocked" if conflicts else "clear"
+        detail = ", ".join(sorted(conflicts)) if conflicts else None
+        return PlanpackGuardFlag(guard="check_allergy", status=status, detail=detail)
+    return PlanpackGuardFlag(guard=guard_type, status="unknown", detail="not evaluated")
+
+
+def _build_suggestions(pack: PlanPack, guard_flags: List[PlanpackGuardFlag]) -> List[PlanpackSuggestion]:
+    blocked = any(flag.status == "blocked" for flag in guard_flags)
+    if blocked:
+        return []
+    suggestions: List[PlanpackSuggestion] = []
+    suggest_section = pack.suggest or {}
+    for key, entries in suggest_section.items():
+        for entry in entries:
+            suggestions.append(
+                PlanpackSuggestion(kind=key, payload={k: str(v) for k, v in entry.items()}, guard=None)
+            )
+    return suggestions
+
+
+def evaluate_planpack(pack: PlanPack, visit: VisitJSON, chart_facts: Iterable[str]) -> PlanpackResponse:
+    guard_flags = [_evaluate_guard(guard, visit, chart_facts) for guard in pack.guards]
+    suggestions = _build_suggestions(pack, guard_flags)
+    return PlanpackResponse(suggestions=suggestions, guard_flags=guard_flags)
