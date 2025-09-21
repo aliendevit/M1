@@ -1,0 +1,102 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "trop-1",
+        "status": "final",
+        "category": [
+          {"coding": [{"code": "laboratory"}]}
+        ],
+        "code": {
+          "text": "Troponin I",
+          "coding": [{"display": "Troponin I"}]
+        },
+        "effectiveDateTime": "2024-01-02T08:00:00Z",
+        "valueQuantity": {"value": 0.03, "unit": "ng/mL"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "trop-2",
+        "status": "final",
+        "category": [
+          {"coding": [{"code": "laboratory"}]}
+        ],
+        "code": {
+          "text": "Troponin I",
+          "coding": [{"display": "Troponin I"}]
+        },
+        "effectiveDateTime": "2024-01-02T11:00:00Z",
+        "valueQuantity": {"value": 0.05, "unit": "ng/mL"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "lactate-1",
+        "status": "final",
+        "category": [
+          {"coding": [{"code": "laboratory"}]}
+        ],
+        "code": {
+          "text": "Lactate",
+          "coding": [{"display": "Lactate"}]
+        },
+        "effectiveDateTime": "2024-01-02T08:30:00Z",
+        "valueQuantity": {"value": 2.1, "unit": "mmol/L"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "lactate-2",
+        "status": "final",
+        "category": [
+          {"coding": [{"code": "laboratory"}]}
+        ],
+        "code": {
+          "text": "Lactate",
+          "coding": [{"display": "Lactate"}]
+        },
+        "effectiveDateTime": "2024-01-02T14:30:00Z",
+        "valueQuantity": {"value": 1.8, "unit": "mmol/L"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "creatinine-1",
+        "status": "final",
+        "category": [
+          {"coding": [{"code": "laboratory"}]}
+        ],
+        "code": {
+          "text": "Creatinine",
+          "coding": [{"display": "Creatinine"}]
+        },
+        "effectiveDateTime": "2024-01-01T07:15:00Z",
+        "valueQuantity": {"value": 1.1, "unit": "mg/dL"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "creatinine-2",
+        "status": "final",
+        "category": [
+          {"coding": [{"code": "laboratory"}]}
+        ],
+        "code": {
+          "text": "Creatinine",
+          "coding": [{"display": "Creatinine"}]
+        },
+        "effectiveDateTime": "2024-01-02T07:15:00Z",
+        "valueQuantity": {"value": 1.4, "unit": "mg/dL"}
+      }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+fastapi==0.110.0
+uvicorn[standard]==0.29.0
+faster-whisper==1.0.0
+llama-cpp-python==0.2.62
+pydantic>=2.6.4
+reportlab==4.0.9
+PyQt5==5.15.10
+numpy==1.26.4
+sqlite-utils==3.35
+python-multipart==0.0.9
+jinja2==3.1.3

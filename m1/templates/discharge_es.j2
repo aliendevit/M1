@@ -1,0 +1,19 @@
+# Instrucciones de Alta (Español)
+
+**Diagnóstico:** {{ visit.chief_complaint }}
+
+**Medicamentos / Plan:**
+{% if visit.plan_intents %}
+{% for intent in visit.plan_intents %}- {{ intent.name }}{% if intent.dose %} – tomar {{ intent.dose }}{% endif %}{% if intent.schedule %} en {{ intent.schedule|join(', ') }}{% endif %}
+{% endfor %}
+{% else %}
+- Revise los medicamentos con el equipo primario.
+{% endif %}
+
+**Cuándo regresar:**
+- Regrese si los síntomas empeoran o aparecen señales de alarma como {{ visit.hpi.red_flags|join(', ') if visit.hpi.red_flags else 'dolor de pecho, falta de aire o síncope' }}.
+
+**Lista de verificación (teach-back):**
+- [ ] El paciente repitió correctamente el plan de medicamentos.
+- [ ] El paciente entiende el tiempo de seguimiento.
+- [ ] El paciente reconoce cuándo buscar atención urgente.

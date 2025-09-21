@@ -1,0 +1,20 @@
+pathway: chest_pain
+guards:
+  - require_absent: ["active bleed"]
+  - check_allergy: ["aspirin"]
+  - check_renal: []
+suggest:
+  labs:
+    - name: Troponin series
+      schedule: ["now", "+3h", "+6h"]
+  tests:
+    - name: ECG
+      at: "immediate"
+  meds:
+    - name: Aspirin
+      dose: "325 mg"
+      route: "PO"
+      guard: "no_allergy"
+  education:
+    - topic: chest_pain_low_risk
+      language: "{{ visit.language_pref or 'en' }}"

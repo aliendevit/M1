@@ -1,0 +1,19 @@
+# Discharge Instructions (English)
+
+**Diagnosis:** {{ visit.chief_complaint }}
+
+**Medications / Plan:**
+{% if visit.plan_intents %}
+{% for intent in visit.plan_intents %}- {{ intent.name }}{% if intent.dose %} – take {{ intent.dose }}{% endif %}{% if intent.schedule %} on {{ intent.schedule|join(', ') }}{% endif %}
+{% endfor %}
+{% else %}
+- Review medications with primary team.
+{% endif %}
+
+**When to return:**
+- Seek care if symptoms worsen or new red-flag symptoms such as {{ visit.hpi.red_flags|join(', ') if visit.hpi.red_flags else 'chest pain, shortness of breath, or syncope' }} occur.
+
+**Teach-back checklist:**
+- [ ] Patient repeated medication plan correctly.
+- [ ] Patient understands follow-up timing.
+- [ ] Patient knows warning signs that require urgent care.
