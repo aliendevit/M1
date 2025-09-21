@@ -106,6 +106,9 @@ All modules prefer deterministic rules and surface uncertainty as chips, matchin
 - **Model paths**: configurable per site; ship via offline installers.
 - **Optional dependencies**: install `requirements-optional.txt` when running the full ASR/LLM stack locally.
 
+## 📚 Additional Documentation
+- `docs/RFP.md` — full Software Requirements & RFP pack ready to share with vendors.
+
 ---
 
 ## 📄 Licensing & Compliance
