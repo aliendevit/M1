@@ -1,0 +1,15 @@
+**Diagnosis summary:** {{ visit.chief_complaint }} {{ cite(evidence[0].source_id if evidence else None) }}
+
+**Medications & therapies:**
+{% if visit.plan_intents %}
+{% for intent in visit.plan_intents %}- {{ intent.name }}{% if intent.dose %} ({{ intent.dose }}){% endif %}{% if intent.schedule %} → {{ intent.schedule | join(', ') }}{% endif %}
+{% endfor %}
+{% else %}- No medication changes recorded.
+{% endif %}
+
+**Instructions (EN):** Follow-up with your doctor if symptoms worsen.
+**Instrucciones (ES):** Regrese si los síntomas empeoran o aparecen nuevos signos de alarma.
+
+**Teach-back checklist:**
+- You know when to return for urgent care.
+- You understand the medication plan provided.
