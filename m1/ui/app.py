@@ -40,11 +40,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _load_pyqt():  # pragma: no cover - exercised only when PyQt is installed
-    """Import PyQt6 lazily to keep optional dependency optional."""
+    """Import PyQt lazily supporting either PyQt6 or PyQt5."""
 
     try:
-        from PyQt6.QtCore import Qt
-        from PyQt6.QtWidgets import (
+        from PyQt6.QtWidgets import (  # type: ignore[attr-defined]
             QApplication,
             QLabel,
             QListWidget,
@@ -54,11 +53,23 @@ def _load_pyqt():  # pragma: no cover - exercised only when PyQt is installed
             QVBoxLayout,
             QWidget,
         )
-    except ImportError as exc:  # pragma: no cover - import guard only
-        raise RuntimeError(
-            "PyQt6 is not installed. Install requirements-optional.txt to "
-            "launch the UI."
-        ) from exc
+    except ImportError:
+        try:
+            from PyQt5.QtWidgets import (  # type: ignore[attr-defined]
+                QApplication,
+                QLabel,
+                QListWidget,
+                QListWidgetItem,
+                QMainWindow,
+                QTabWidget,
+                QVBoxLayout,
+                QWidget,
+            )
+        except ImportError as exc:  # pragma: no cover - import guard only
+            raise RuntimeError(
+                "PyQt is not installed. Install requirements-optional.txt to "
+                "launch the UI."
+            ) from exc
 
     return {
         "QApplication": QApplication,
@@ -69,7 +80,6 @@ def _load_pyqt():  # pragma: no cover - exercised only when PyQt is installed
         "QLabel": QLabel,
         "QListWidget": QListWidget,
         "QListWidgetItem": QListWidgetItem,
-        "Qt": Qt,
     }
 
 
