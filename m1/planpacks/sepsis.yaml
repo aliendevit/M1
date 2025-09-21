@@ -1,0 +1,21 @@
+pathway: sepsis
+guards:
+  - require_absent: ["active bleed"]
+  - check_renal: []
+  - check_anticoag: ["warfarin", "heparin"]
+suggest:
+  labs:
+    - name: Lactate
+      schedule: ["now", "+6h"]
+    - name: Blood cultures
+      schedule: ["now"]
+  tests:
+    - name: Broad-spectrum antibiotics timer
+      at: "within 1h"
+  meds:
+    - name: Fluid bolus
+      dose: "30 mL/kg"
+      route: "IV"
+  education:
+    - topic: sepsis_care_plan
+      language: "{{ visit.language_pref or 'en' }}"

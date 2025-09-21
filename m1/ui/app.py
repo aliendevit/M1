@@ -40,6 +40,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _load_pyqt():  # pragma: no cover - exercised only when PyQt is installed
+    """Import PyQt lazily supporting either PyQt6 or PyQt5."""
+
+    try:
+        from PyQt6.QtWidgets import (  # type: ignore[attr-defined]
     """Import PyQt6 lazily to keep optional dependency optional."""
 
     try:
@@ -54,6 +58,24 @@ def _load_pyqt():  # pragma: no cover - exercised only when PyQt is installed
             QVBoxLayout,
             QWidget,
         )
+    except ImportError:
+        try:
+            from PyQt5.QtWidgets import (  # type: ignore[attr-defined]
+                QApplication,
+                QLabel,
+                QListWidget,
+                QListWidgetItem,
+                QMainWindow,
+                QTabWidget,
+                QVBoxLayout,
+                QWidget,
+            )
+        except ImportError as exc:  # pragma: no cover - import guard only
+            raise RuntimeError(
+                "PyQt is not installed. Install requirements-optional.txt to "
+                "launch the UI."
+            ) from exc
+
     except ImportError as exc:  # pragma: no cover - import guard only
         raise RuntimeError(
             "PyQt6 is not installed. Install requirements-optional.txt to "
@@ -126,6 +148,7 @@ def launch_ui(config_path: Path) -> int:
 def _build_note_tab(config, QWidget, QVBoxLayout, QLabel):  # pragma: no cover
     widget = QWidget()
     layout = QVBoxLayout(widget)
+    layout.addWidget(QLabel("Structured SOAP/MDM note with inline citations."))
     layout.addWidget(QLabel("Structured SOAP/MDM note will render here."))
     layout.addWidget(
         QLabel(
@@ -133,18 +156,24 @@ def _build_note_tab(config, QWidget, QVBoxLayout, QLabel):  # pragma: no cover
             "Edit controls will ship in a future iteration."
         )
     )
+    layout.addWidget(QLabel("Use Ctrl+C to copy or the Export button for MD/PDF/RTF."))
+
     return widget
 
 
 def _build_handoff_tab(config, QWidget, QVBoxLayout, QLabel):  # pragma: no cover
     widget = QWidget()
     layout = QVBoxLayout(widget)
+    layout.addWidget(QLabel("I-PASS summary preview (Illness, Summary, Action, Pending, Contingency, Synthesis)."))
     layout.addWidget(QLabel("I-PASS summary preview."))
+
     layout.addWidget(
         QLabel(
             "Banded chips (Auto/Soft/Must/Blocked) appear in the rail to the right."
         )
     )
+    layout.addWidget(QLabel("Keyboard: Enter=accept, 2=edit, 3=override, E=evidence."))
+
     return widget
 
 
@@ -171,6 +200,11 @@ def _build_sources_tab(
 ):  # pragma: no cover
     widget = QWidget()
     layout = QVBoxLayout(widget)
+    layout.addWidget(QLabel("Evidence sources preview"))
+    sources = QListWidget(widget)
+    for enabled in config.pathways.enabled or []:
+        QListWidgetItem(f"Plan pack enabled: {enabled}", sources)
+    QListWidgetItem("Consent required before ASR starts (press Space)", sources)
     layout.addWidget(QLabel("Evidence sources preview (placeholder)"))
     sources = QListWidget(widget)
     for enabled in config.pathways.enabled or []:

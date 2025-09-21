@@ -1,0 +1,31 @@
+# SOAP/MDM Note
+
+## Subjective
+- Chief complaint: {{ visit.chief_complaint }}
+- Onset: {{ visit.hpi.onset or "unspecified" }}
+- Quality: {{ visit.hpi.quality or "unspecified" }}
+- Modifiers: {{ visit.hpi.modifiers|join(', ') if visit.hpi.modifiers else "none documented" }}
+- Associated symptoms: {{ visit.hpi.associated_symptoms|join(', ') if visit.hpi.associated_symptoms else "none reported" }}
+- Red flags: {{ visit.hpi.red_flags|join(', ') if visit.hpi.red_flags else "none elicited" }}
+
+## Objective
+{% if evidence %}
+{% for chip in evidence %}- {{ chip.name }} {{ chip.value }} {% if chip.delta %}({{ chip.delta }}){% endif %} {{ cite(chip.source_id) }}
+{% endfor %}
+{% else %}
+No recent labs or vitals attached.
+{% endif %}
+
+## Assessment & Plan
+{% if visit.plan_intents %}
+{% for intent in visit.plan_intents %}- {{ intent.type.value.replace('_', ' ')|title }}: {{ intent.name }}{% if intent.schedule %} ({{ intent.schedule|join(', ') }}){% endif %}{% if intent.dose %} – {{ intent.dose }}{% endif %}
+{% endfor %}
+{% else %}
+Plan not yet documented.
+{% endif %}
+
+{% if missing %}
+## Missing
+{% for item in missing %}- {{ item }}
+{% endfor %}
+{% endif %}

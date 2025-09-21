@@ -1,3 +1,4 @@
+"""Plan pack loader and evaluator."""
 """Utilities for loading YAML plan packs and evaluating guards."""
 from __future__ import annotations
 
@@ -7,6 +8,8 @@ from typing import Dict, Iterable, List
 
 import yaml
 
+from ..guards.service import GuardService, evaluate_planpack_with_guards
+from ..schemas import EvidenceChip, PlanpackResponse, VisitJSON
 from ..schemas import PlanpackGuardFlag, PlanpackResponse, PlanpackSuggestion, VisitJSON
 
 
@@ -35,6 +38,15 @@ def load_directory(directory: Path | str) -> Dict[str, PlanPack]:
     return packs
 
 
+def evaluate_planpack(
+    pack: PlanPack,
+    visit: VisitJSON,
+    evidence: Iterable[EvidenceChip],
+    *,
+    guard_service: GuardService | None = None,
+) -> PlanpackResponse:
+    guard_service = guard_service or GuardService()
+    return evaluate_planpack_with_guards(guard_service, pack, visit, evidence)
 def _guard_label(guard: dict, index: int) -> str:
     guard_type = next(iter(guard))
     return guard.get("label", f"guard_{index}_{guard_type}")

@@ -1,0 +1,44 @@
+# I-PASS Handoff
+
+## Illness Severity
+{{ 'Watcher' if visit.risks else 'Stable' }}
+
+## Patient Summary
+Chief complaint {{ visit.chief_complaint }} with onset {{ visit.hpi.onset or 'unspecified' }} and quality {{ visit.hpi.quality or 'unspecified' }}.
+
+## Action List
+{% if visit.plan_intents %}
+{% for intent in visit.plan_intents %}- {{ intent.type.value.replace('_', ' ')|title }}: {{ intent.name }}{% if intent.schedule %} ({{ intent.schedule|join(', ') }}){% endif %}{% if intent.dose %} – {{ intent.dose }}{% endif %}
+{% endfor %}
+{% else %}
+- Confirm plan of care with supervising team.
+{% endif %}
+
+## Pending with Timers
+{% set pending = [] %}
+{% for intent in visit.plan_intents %}
+  {% if intent.schedule %}
+    {% for item in intent.schedule %}
+      {% set _ = pending.append(intent.name ~ ' ' ~ item) %}
+    {% endfor %}
+  {% endif %}
+{% endfor %}
+{% if pending %}
+{% for item in pending %}- {{ item }}
+{% endfor %}
+{% else %}
+- No timed follow-ups captured.
+{% endif %}
+
+## Contingency
+{% if visit.hpi.red_flags %}
+Escalate if {{ visit.hpi.red_flags|join(', ') }}.
+{% else %}
+Monitor for new red-flag symptoms.
+{% endif %}
+
+{% if missing %}
+## Missing
+{% for item in missing %}- {{ item }}
+{% endfor %}
+{% endif %}
