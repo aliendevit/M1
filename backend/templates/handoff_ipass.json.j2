@@ -1,0 +1,22 @@
+# path: backend/templates/handoff_ipass.json.j2
+{
+  "I": {
+    "severity": "{{ visit.hpi.red_flags|length > 0 and 'unstable' or 'stable' }}"
+  },
+  "P": {
+    "summary": "Primary issue: {{ visit.chief_complaint }}."
+  },
+  "A": {
+    "action_list": [
+      {%- for p in visit.plan_intents -%}
+      {"type":"{{ p.type }}","name":"{{ p.name }}","dose":"{{ p.dose or '' }}","schedule":[{% for s in p.schedule %}"{{ s }}"{% if not loop.last %},{% endif %}{% endfor %}] }{% if not loop.last %},{% endif %}
+      {%- endfor -%}
+    ]
+  },
+  "S": {
+    "situation_awareness": [{% for r in visit.risks %}"{{ r }}"{% if not loop.last %},{% endif %}{% endfor %}]
+  },
+  "S2": {
+    "synthesis_by_receiver": ""
+  }
+}

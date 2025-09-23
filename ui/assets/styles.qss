@@ -1,0 +1,120 @@
+# path: ui/assets/styles.qss
+/* ---------- MinuteOne (M1) — WCAG AA–minded QSS ---------- */
+/* Base palette (light):
+   Text           #111827
+   Subtle text    #374151
+   Border         #D1D5DB
+   Canvas         #FFFFFF
+   Accent         #2563EB  (blue-600) - focus ring
+   Muted          #F3F4F6
+   Danger         #EF4444
+   Warn           #F59E0B
+   Neutral        #6B7280
+*/
+
+* {
+  font-family: "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
+  font-size: 11pt;
+  color: #111827;
+}
+
+/* Window canvas */
+QWidget {
+  background: #FFFFFF;
+}
+
+/* ---- Focus ring for keyboard users ---- */
+QWidget:focus, QPushButton:focus, QLineEdit:focus, QListWidget:focus, QTextEdit:focus {
+  outline: 2px solid #2563EB;
+  outline-offset: 1px;
+}
+
+/* ---- Buttons ---- */
+QPushButton {
+  background: #1F2937;               /* gray-800 */
+  color: #FFFFFF;
+  border: 1px solid #111827;
+  border-radius: 10px;
+  padding: 6px 12px;
+}
+QPushButton:hover { background: #111827; }
+QPushButton:disabled {
+  background: #D1D5DB;
+  color: #6B7280;
+  border-color: #D1D5DB;
+}
+
+/* ---- Tabs ---- */
+QTabWidget::pane {
+  border-top: 1px solid #D1D5DB;
+}
+QTabBar::tab {
+  background: #F3F4F6;
+  border: 1px solid #D1D5DB;
+  padding: 8px 14px;
+  margin-right: 4px;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  color: #374151;
+}
+QTabBar::tab:selected {
+  background: #FFFFFF;
+  color: #111827;
+  border-bottom-color: #FFFFFF;
+}
+
+/* ---- Text areas / lists ---- */
+QTextEdit, QListWidget, QLineEdit {
+  background: #FFFFFF;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  padding: 6px;
+}
+QListWidget::item {
+  padding: 8px;
+}
+QListWidget::item:selected {
+  background: #E5E7EB;
+  color: #111827;
+}
+
+/* ---- Chip cards ---- */
+#chipItem {
+  border: 1px solid #E5E7EB;
+  border-radius: 10px;
+  background: #FFFFFF;
+}
+#chipItem:hover {
+  background: #F9FAFB;
+}
+#chipLabel {
+  font-weight: 600;
+  color: #111827;
+}
+
+/* ---- Dialogs ---- */
+QDialog {
+  background: #FFFFFF;
+}
+QDialog QLabel {
+  color: #111827;
+}
+
+/* ---- Scrollbars (thicker, easier to grab) ---- */
+QScrollBar:vertical {
+  background: #F3F4F6;
+  width: 14px;
+  margin: 0px;
+}
+QScrollBar::handle:vertical {
+  background: #D1D5DB;
+  min-height: 30px;
+  border-radius: 7px;
+}
+QScrollBar::handle:vertical:hover { background: #9CA3AF; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+
+/* ---- Severity colors for bands (used in labels or badges if needed) ---- */
+.bandB { color: #6B7280; }  /* gray ● */
+.bandC { color: #F59E0B; }  /* yellow ▲ */
+.bandD { color: #EF4444; }  /* red ■ */

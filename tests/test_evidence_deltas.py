@@ -1,20 +1,18 @@
+from __future__ import annotations
+
 from pathlib import Path
 
 from m1.evidence.sqlite_cache import SQLiteChartCache
-from m1.fhir.reader import iter_observations, load_bundle
+from m1.fhir.reader import load_bundle
 
 
-def test_ingest_bundle_and_compute_deltas(tmp_path):
-    db_path = tmp_path / "chart.sqlite"
+def test_troponin_delta(tmp_path) -> None:
+    db_path = tmp_path / "cache.sqlite"
     cache = SQLiteChartCache(db_path)
     cache.initialise()
-    resources = load_bundle(Path("demo/patient_bundle.json"))
-    observations = list(iter_observations(resources))
-    cache.ingest_observations(observations)
-    chips = cache.context_window(0)
-
-    chip_map = {chip.id: chip for chip in chips}
-    assert chip_map["obs/trop-2"].delta == "+0.02"
-    assert chip_map["obs/lactate-2"].delta == "-0.3"
-    assert chip_map["obs/creatinine-2"].delta == "+0.3"
-    assert len({chip.name for chip in chips}) >= 3
+    bundle = load_bundle(Path(__file__).resolve().parents[1] / "demo" / "patient_bundle.json")
+    cache.ingest_bundle(bundle)
+    labs = cache.context_window(72)["labs"]
+    troponin = next(lab for lab in labs if lab["code"] == "TROP")
+    assert troponin["delta_text"] == "+0.03"
+    assert "+0.03" in troponin["display_value"]

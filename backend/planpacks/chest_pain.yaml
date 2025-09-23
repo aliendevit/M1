@@ -1,0 +1,28 @@
+# path: backend/planpacks/chest_pain.yaml
+# Guards referenced: allergy_asa, active_bleed, pregnancy, renal_function_for_contrast, anticoag_conflict, resp_depression
+suggestions:
+  - label: "Troponin cadence"
+    proposed: "q3h ×2"
+    type: "lab_series"
+    risk: "medium"
+    guards: ["pregnancy", "active_bleed"]
+  - label: "ECG now"
+    proposed: "now"
+    type: "test"
+    risk: "high"
+    guards: []
+  - label: "Aspirin 325 mg PO now"
+    proposed: "325 mg PO x1"
+    type: "med_admin"
+    risk: "high"
+    guards: ["allergy_asa", "active_bleed"]
+  - label: "CTA chest with contrast if PE suspected"
+    proposed: "CTA chest"
+    type: "test"
+    risk: "medium"
+    guards: ["renal_function_for_contrast", "pregnancy", "anticoag_conflict"]
+  - label: "Education: return precautions for ACS"
+    proposed: "teach-back"
+    type: "education"
+    risk: "low"
+    guards: []

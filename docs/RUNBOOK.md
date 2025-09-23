@@ -1,54 +1,71 @@
-# MinuteOne Runbook (Offline Pilot)
+# MinuteOne Runbook
 
-This runbook covers local installation, configuration, and common troubleshooting tasks for the MinuteOne bedside side-panel.
+## 1. Environment
 
-## 1. Installation
+- Python 3.12 (64-bit)
+- CPU-only execution by default; adjust `config.yaml` if GPU layers are available.
+- No outbound network access; models must be present locally.
 
-1. **Create an isolated environment**
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   ```
-2. **Place runtime models** in the paths referenced by `config.yaml`:
-   - `models/asr/faster-whisper-small-int8`
-   - `models/llm/llama-3.2-3b-instruct-q4_ks.gguf`
-3. **Initialise the chart cache** with the demo bundle:
-   ```bash
-   python -m m1.scripts.ingest demo/patient_bundle.json
-   ```
-4. **Start the API**
-   ```bash
-   uvicorn m1.api.main:app --host 127.0.0.1 --port 8000
-   ```
-5. **Launch the side panel** (optional GUI):
-   ```bash
-   python -m m1.ui.app --config config.yaml
-   ```
+Create a virtual environment and install dependencies:
 
-## 2. Operating Notes
+```bash
+python -m venv .venv
+. .venv/Scripts/activate  # Windows
+pip install -r requirements.txt
+```
 
-- The ASR endpoint (`/asr/segment`) accepts base64 audio or plaintext transcripts.
-- Extraction (`/extract/visit`) returns VisitJSON that is schema validated before response.
-- Composers (`/compose/*`) render markdown with citation IDs, suitable for copy/paste or export via `/export`.
-- Plan packs (`/suggest/planpack`) evaluate guards; blocked suggestions require manual override with a reason via `/chips/resolve`.
+## 2. Seed the Evidence Cache
 
-## 3. Troubleshooting
+Load the synthetic demo bundle into the local SQLite cache:
 
-| Issue | Resolution |
-| --- | --- |
-| **ASR service slow** | Verify CPU governor is not throttled; reduce `segment_ms` in config for more responsive segmentation. |
-| **LLM load failure** | Confirm GGUF path and ensure the file is readable by the runtime user. |
-| **No citations in outputs** | Check that the ingest script populated the SQLite cache (`data/chart.sqlite`). |
-| **GUI fails to launch** | Install PyQt5 (included in requirements) and ensure `$DISPLAY` is available. Use `--headless` flag to validate config without GUI. |
+```bash
+python -m m1.scripts.ingest demo/patient_bundle.json
+```
 
-## 4. Mic Setup
+The script respects `cache.db` from `config.yaml` (default `data/m1_cache.sqlite`).
 
-- Use a cardioid USB microphone positioned between clinician and patient.
-- Disable OS noise suppression when possible; the VAD inside Faster-Whisper handles ambient ward noise better without double filtering.
-- Confirm input levels peak between -12 and -6 dB to prevent clipping.
+## 3. Launch Services
 
-## 5. Logs & Audit
+### API
 
-- Audit events, chip resolutions, and consent toggles are stored under `data/audit.log.jsonl` (created at runtime).
-- Rotate logs every 30 days per `config.yaml > privacy.log_retention_days`.
+```bash
+uvicorn m1.api.main:app --reload --port 8000
+```
+
+Key endpoints:
+- `GET /health` – service heartbeat
+- `GET /facts/context` – evidence chips with lab deltas
+- `POST /extract/visit` – VisitJSON extraction
+- `POST /compose/*` – composition endpoints for note, handoff, discharge
+- `POST /suggest/planpack` – guarded plan pack suggestions
+- `POST /chips/resolve` – append chip audit log (JSONL at `audit.log`)
+- `GET /metrics/session` – session metrics and thresholds
+
+### Desktop UI
+
+```bash
+python -m m1.ui.app
+```
+
+Paste a transcript, tick consent, and compose artefacts. Use the export button to save Markdown, PDF, or RTF output. Keyboard shortcut `Ctrl+E` triggers extraction.
+
+## 4. Models
+
+- Place `llama-3.2-3b-instruct-q4_ks.gguf` at `models/` or update `config.yaml`.
+- Optional faster-whisper model is configured as `faster-whisper-small`.
+
+## 5. Maintenance
+
+- Audit logs accumulate at `logs/chip_audit.jsonl`; rotate as needed.
+- To reset demo data, delete the SQLite file and rerun the ingest script.
+- Configurable weights and thresholds live under the `confidence` section of `config.yaml`.
+
+## 6. Testing
+
+Run automated tests before release:
+
+```bash
+pytest -q
+```
+
+Tests cover chip banding, VisitJSON validation, note citation rendering, and evidence delta computation.

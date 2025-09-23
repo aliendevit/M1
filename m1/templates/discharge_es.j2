@@ -1,19 +1,29 @@
-# Instrucciones de Alta (Español)
+# Instrucciones de Alta
 
-**Diagnóstico:** {{ visit.chief_complaint }}
+Estimado/a {{ patient_name }},
 
-**Medicamentos / Plan:**
-{% if visit.plan_intents %}
-{% for intent in visit.plan_intents %}- {{ intent.name }}{% if intent.dose %} – tomar {{ intent.dose }}{% endif %}{% if intent.schedule %} en {{ intent.schedule|join(', ') }}{% endif %}
-{% endfor %}
-{% else %}
-- Revise los medicamentos con el equipo primario.
+Hoy le evaluamos por {{ visit.chief_complaint }}. Con la informacion disponible, sus riesgos principales incluyen: {% if visit.risks %}{{ visit.risks | join(', ') }}{% else %}seguimiento de rutina{% endif %}.
+
+## Plan de Cuidado
+
+- Tome los medicamentos indicados tal como se prescribieron.
+- Descanse y mantengase bien hidratado/a.
+- Siga las citas con especialistas que se enumeran abajo.
+
+## Cuando Buscar Ayuda
+
+Llame a su medico o regrese a la sala de emergencias si aparecen sintomas nuevos, fiebre alta, dolor en el pecho, dificultad para respirar o cualquier preocupacion urgente.
+
+## Seguimiento
+
+Idioma preferido: {{ visit.language_pref or 'Espanol' }}.
+Proximos pasos:
+{% if follow_up %}
+{% for item in follow_up -%}
+- {{ item }}
+{% endfor -%}
+{% else %}- Programe una cita de seguimiento con su equipo de atencion primaria en una semana.
 {% endif %}
 
-**Cuándo regresar:**
-- Regrese si los síntomas empeoran o aparecen señales de alarma como {{ visit.hpi.red_flags|join(', ') if visit.hpi.red_flags else 'dolor de pecho, falta de aire o síncope' }}.
-
-**Lista de verificación (teach-back):**
-- [ ] El paciente repitió correctamente el plan de medicamentos.
-- [ ] El paciente entiende el tiempo de seguimiento.
-- [ ] El paciente reconoce cuándo buscar atención urgente.
+Gracias,
+Equipo MinuteOne

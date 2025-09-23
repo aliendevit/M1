@@ -1,0 +1,14 @@
+{
+  "synonyms": {
+    "chest pain": ["cp", "pressure in chest", "chest tightness"],
+    "shortness of breath": ["sob", "dyspnea", "trouble breathing"],
+    "fever": ["febrile", "temperature", "pyrexia"]
+  },
+  "units": {
+    "troponin i": "ng/mL",
+    "lactate": "mmol/L",
+    "creatinine": "mg/dL",
+    "spo2": "%"
+  },
+  "negations": ["no", "denies", "without", "not"]
+}

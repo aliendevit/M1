@@ -1,0 +1,125 @@
+# path: backend/services/extract_service.py
+from __future__ import annotations
+
+import re
+import threading
+from typing import Dict, List, Optional, Tuple
+
+def _load_config() -> Dict:
+    try:
+        import yaml, os
+        with open(os.path.join("config", "config.yaml"), "r", encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    except Exception:
+        return {}
+
+# --- Minimal schema-shaped containers for internal processing ---
+def _empty_visit() -> Dict:
+    return {
+        "chief_complaint": "unspecified",
+        "hpi": {"onset": None, "quality": None, "modifiers": [], "associated_symptoms": [], "red_flags": []},
+        "exam_bits": {"cv": None, "lungs": None},
+        "risks": [],
+        "plan_intents": [],
+        "language_pref": None,
+    }
+
+class ExtractService:
+    """
+    Rules-first VisitJSON extractor. LLM used only to fill ambiguous slots (strict JSON) when present.
+    """
+    _instance: Optional["ExtractService"] = None
+    _lock = threading.Lock()
+
+    @classmethod
+    def instance(cls) -> "ExtractService":
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = cls()
+            return cls._instance
+
+    def __init__(self):
+        self.cfg = _load_config()
+        # Deterministic regex patterns
+        self.re_cc = re.compile(r"\b(chest pain|seizure|fever|shortness of breath|sob|abdominal pain)\b", re.I)
+        self.re_onset = re.compile(r"\b(since|for)\s+(\d+\s*(?:min|mins|minutes|hr|hrs|hours|day|days|week|weeks))\b", re.I)
+        self.re_quality = re.compile(r"\b(sharp|dull|pressure|burning|throbbing|stabbing)\b", re.I)
+        self.re_assoc = re.compile(r"\b(nausea|vomit(?:ing)?|sweat(?:ing)?|diaphoresis|dyspnea|palpitations)\b", re.I)
+        self.re_red = re.compile(r"\b(syncope|hemoptysis|hypotension|stemi|stroke)\b", re.I)
+        self.re_mod = re.compile(r"\b(worse with|better with|relieved by|exacerbated by)\s+([\w\s]+)", re.I)
+
+    def extract_visit(self, transcript_span: Dict, chart_facts: List[Dict]) -> Dict:
+        text = (transcript_span.get("text") or "").strip()
+        V = _empty_visit()
+        slot_scores: List[Dict] = []
+
+        # Chief complaint
+        m = self.re_cc.search(text)
+        if m:
+            V["chief_complaint"] = m.group(1).lower()
+            slot_scores.append({"slot": "chief_complaint", "confidence": 0.82})
+        else:
+            # Try chart facts (notes)
+            for f in chart_facts:
+                if f.get("kind") == "note" and f.get("name", "").lower().startswith("triage"):
+                    V["chief_complaint"] = (f.get("value") or "unspecified").split("\n")[0][:80]
+                    break
+            slot_scores.append({"slot": "chief_complaint", "confidence": 0.60})
+
+        # Onset
+        mo = self.re_onset.search(text)
+        if mo:
+            V["hpi"]["onset"] = mo.group(0)
+            slot_scores.append({"slot": "hpi.onset", "confidence": 0.75})
+        else:
+            slot_scores.append({"slot": "hpi.onset", "confidence": 0.50})
+
+        # Quality
+        mq = self.re_quality.search(text)
+        if mq:
+            V["hpi"]["quality"] = mq.group(1).lower()
+            slot_scores.append({"slot": "hpi.quality", "confidence": 0.78})
+        else:
+            slot_scores.append({"slot": "hpi.quality", "confidence": 0.50})
+
+        # Modifiers
+        mods = []
+        for mm in self.re_mod.finditer(text):
+            mods.append(mm.group(0).strip().lower())
+        V["hpi"]["modifiers"] = mods
+        slot_scores.append({"slot": "hpi.modifiers", "confidence": 0.70 if mods else 0.50})
+
+        # Associated symptoms
+        assoc = list({m.group(1).lower() for m in self.re_assoc.finditer(text)})
+        V["hpi"]["associated_symptoms"] = assoc
+        slot_scores.append({"slot": "hpi.associated_symptoms", "confidence": 0.72 if assoc else 0.50})
+
+        # Red flags
+        reds = list({m.group(1).lower() for m in self.re_red.finditer(text)})
+        V["hpi"]["red_flags"] = reds
+        slot_scores.append({"slot": "hpi.red_flags", "confidence": 0.70 if reds else 0.50})
+
+        # Risks from chart facts
+        risks = []
+        for f in chart_facts:
+            if f.get("kind") == "note" and "risk" in (f.get("name") or "").lower():
+                risks.append((f.get("value") or "").strip()[:60])
+        V["risks"] = risks
+
+        # Language preference heuristic
+        if "espanol" in text.lower() or "spanish" in text.lower():
+            V["language_pref"] = "es"
+
+        # LLM fill for ambiguous (optional)
+        try:
+            from .llm_wrapper import LLMWrapper
+            if V["hpi"]["onset"] is None and len(text) > 40:
+                prompt = f"Extract onset phrase from: {text!r}. Respond JSON: {{\"onset\":\"string|null\"}}"
+                js = LLMWrapper.instance().complete_json(prompt, keys=["onset"])
+                if isinstance(js, dict) and js.get("onset"):
+                    V["hpi"]["onset"] = js["onset"]
+                    slot_scores.append({"slot": "hpi.onset", "confidence": 0.70})
+        except Exception:
+            pass
+
+        return {"VisitJSON": V, "slot_scores": slot_scores}

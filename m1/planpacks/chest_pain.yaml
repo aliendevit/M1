@@ -1,20 +1,15 @@
-pathway: chest_pain
-guards:
-  - require_absent: ["active bleed"]
-  - check_allergy: ["aspirin"]
-  - check_renal: []
-suggest:
-  labs:
-    - name: Troponin series
-      schedule: ["now", "+3h", "+6h"]
-  tests:
-    - name: ECG
-      at: "immediate"
-  meds:
-    - name: Aspirin
-      dose: "325 mg"
-      route: "PO"
-      guard: "no_allergy"
-  education:
-    - topic: chest_pain_low_risk
-      language: "{{ visit.language_pref or 'en' }}"
+id: chest_pain
+summary: Conservative evaluation path for chest pain.
+actions:
+  - label: Serial troponin trend
+    guard_flags:
+      - renal
+      - active_bleed
+    steps:
+      - Order troponin every 3 hours x2 if clinically appropriate.
+      - Review electrocardiogram for ischemic changes.
+  - label: Aspirin education
+    guard_flags:
+      - allergy
+    steps:
+      - Educate patient about aspirin benefits and risks.

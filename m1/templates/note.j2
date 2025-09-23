@@ -1,31 +1,43 @@
-# SOAP/MDM Note
-
-## Subjective
-- Chief complaint: {{ visit.chief_complaint }}
-- Onset: {{ visit.hpi.onset or "unspecified" }}
-- Quality: {{ visit.hpi.quality or "unspecified" }}
-- Modifiers: {{ visit.hpi.modifiers|join(', ') if visit.hpi.modifiers else "none documented" }}
-- Associated symptoms: {{ visit.hpi.associated_symptoms|join(', ') if visit.hpi.associated_symptoms else "none reported" }}
-- Red flags: {{ visit.hpi.red_flags|join(', ') if visit.hpi.red_flags else "none elicited" }}
-
-## Objective
-{% if evidence %}
-{% for chip in evidence %}- {{ chip.name }} {{ chip.value }} {% if chip.delta %}({{ chip.delta }}){% endif %} {{ cite(chip.source_id) }}
-{% endfor %}
-{% else %}
-No recent labs or vitals attached.
+# Subjective
+Chief Complaint: {{ visit.chief_complaint }}[^src:chief]
+{% if visit.hpi.onset or visit.hpi.quality or visit.hpi.modifiers or visit.hpi.associated_symptoms -%}
+HPI:
+{% if visit.hpi.onset %}- Onset: {{ visit.hpi.onset }}
+{% endif -%}
+{% if visit.hpi.quality %}- Quality: {{ visit.hpi.quality }}
+{% endif -%}
+{% if visit.hpi.modifiers %}- Modifiers: {{ visit.hpi.modifiers | join(', ') }}
+{% endif -%}
+{% if visit.hpi.associated_symptoms %}- Associated symptoms: {{ visit.hpi.associated_symptoms | join(', ') }}
+{% endif -%}
+{% if visit.hpi.red_flags %}- Red flags: {{ visit.hpi.red_flags | join(', ') }}
+{% endif -%}
+{% else -%}
+HPI: Structured data pending clinician input.
 {% endif %}
 
-## Assessment & Plan
+# Objective
+{% if visit.exam_bits.cv %}- Cardiovascular: {{ visit.exam_bits.cv }}
+{% endif -%}
+{% if visit.exam_bits.lungs %}- Respiratory: {{ visit.exam_bits.lungs }}
+{% endif -%}
+{% if not visit.exam_bits.cv and not visit.exam_bits.lungs %}Focused exam deferred or not yet documented.
+{% endif %}
+
+# Assessment
+Risks: {% if visit.risks %}{{ visit.risks | join(', ') }}{% else %}none indicated{% endif %}.
+Assessment summary: {{ assessment_summary }}
+
+# Plan
 {% if visit.plan_intents %}
-{% for intent in visit.plan_intents %}- {{ intent.type.value.replace('_', ' ')|title }}: {{ intent.name }}{% if intent.schedule %} ({{ intent.schedule|join(', ') }}){% endif %}{% if intent.dose %} – {{ intent.dose }}{% endif %}
-{% endfor %}
-{% else %}
-Plan not yet documented.
+{% for item in visit.plan_intents -%}
+- {{ item.type | upper }}: {{ item.name }}{% if item.dose %} {{ item.dose }}{% endif %}{% if item.schedule %} ({{ item.schedule | join('; ') }}){% endif %}
+{% endfor -%}
+{% else -%}
+Plan requires clinician confirmation.
 {% endif %}
 
-{% if missing %}
-## Missing
-{% for item in missing %}- {{ item }}
-{% endfor %}
-{% endif %}
+[sources]
+{% for source in citations -%}
+[^src:{{ source.id }}]: {{ source.text }} ({{ source.ts }})
+{% endfor -%}

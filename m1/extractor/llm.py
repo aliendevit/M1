@@ -1,252 +1,314 @@
-"""Hybrid extractor that uses rules first and a tiny LLM as a backstop."""
 from __future__ import annotations
 
 import json
+import logging
 import re
-from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from dataclasses import dataclass, field
+from pathlib import Path
+from threading import Lock
+from typing import Any
 
 from pydantic import ValidationError
 
-from ..config import LLMConfig
-from ..schemas import HPI, PlanIntent, PlanIntentType, SlotScore, VisitJSON
+from m1.models import PlanIntent, VisitJSON
 
-try:  # pragma: no cover - optional dependency
+try:  # pragma: no cover - optional dependency during tests
     from llama_cpp import Llama  # type: ignore
-except Exception:  # pragma: no cover - optional dependency
+except Exception:  # pragma: no cover - optional dependency during tests
     Llama = None  # type: ignore
 
-
-@dataclass
-class ExtractionResult:
-    visit: VisitJSON
-    slot_scores: Dict[str, SlotScore]
+LOGGER = logging.getLogger(__name__)
 
 
-CHIEF_COMPLAINT_PATTERNS: Sequence[re.Pattern[str]] = (
-    re.compile(r"chief complaint[:\s]+(?P<value>[^\.;\n]+)", re.I),
-    re.compile(r"here for (?P<value>[^\.;\n]+)", re.I),
-    re.compile(r"presenting with (?P<value>[^\.;\n]+)", re.I),
-)
+@dataclass(slots=True)
+class LLMConfig:
+    """Configuration for the local llama.cpp model."""
 
-ONSET_PATTERN = re.compile(r"(symptoms?|pain) (?:started|began) (?P<value>[^\.;\n]+)", re.I)
-QUALITY_PATTERN = re.compile(r"(?:describes|described) (?:it|pain) as (?P<value>[^\.;\n]+)", re.I)
-MODIFIER_PATTERN = re.compile(r"worse with (?P<value>[^\.;\n]+)", re.I)
-ASSOCIATED_PATTERN = re.compile(r"associated with (?P<value>[^\.;\n]+)", re.I)
-RED_FLAG_PATTERN = re.compile(r"denies (?P<value>[^\.;\n]+ red flags?)", re.I)
-LANG_PREF_PATTERN = re.compile(r"prefers spanish|spanish interpreter", re.I)
-
-RISK_KEYWORDS = {
-    "smoker": "tobacco use",
-    "afib": "atrial fibrillation",
-    "diabetes": "diabetes",
-    "bleeding": "active bleed",
-    "pregnant": "pregnancy",
-}
-
-PLAN_LINE_PATTERN = re.compile(
-    r"(?P<type>labs?|tests?|meds?|medication|education)[:\s]+(?P<value>.+)", re.I
-)
+    model_path: Path
+    n_ctx: int = 2048
+    n_threads: int = 4
+    n_gpu_layers: int = 0
+    seed: int = 42
+    deterministic: bool = True
+    max_tokens: int = 512
+    system_prompt: str = (
+        "You are a structured data assistant for MinuteOne. "
+        "Return only strict JSON matching the provided schema."
+    )
+    temperature: float = 0.0
 
 
-def _normalise_list(value: str) -> List[str]:
-    return [item.strip() for item in re.split(r",|;| and ", value) if item.strip()]
+@dataclass(slots=True)
+class LLMExtractor:
+    """Hybrid rule + local LLM extractor for VisitJSON."""
 
+    config: LLMConfig
+    _llm: Llama | None = field(default=None, init=False, repr=False)
+    _lock: Lock = field(default_factory=Lock, init=False, repr=False)
 
-def _first_match(text: str, patterns: Sequence[re.Pattern[str]]) -> Optional[str]:
-    for pattern in patterns:
-        match = pattern.search(text)
-        if match:
-            return match.group("value").strip()
-    return None
-
-
-def _extract_plan_intents(lines: Iterable[str]) -> Tuple[List[PlanIntent], Dict[str, SlotScore]]:
-    intents: List[PlanIntent] = []
-    slot_scores: Dict[str, SlotScore] = {}
-    for line in lines:
-        match = PLAN_LINE_PATTERN.search(line)
-        if not match:
-            continue
-        plan_type = match.group("type").lower()
-        payload = match.group("value").strip().rstrip(".")
-        if plan_type.startswith("lab"):
-            intent_type = PlanIntentType.lab_series
-        elif plan_type.startswith("test"):
-            intent_type = PlanIntentType.test
-        elif plan_type.startswith("med"):
-            intent_type = PlanIntentType.med_admin
-        else:
-            intent_type = PlanIntentType.education
-        schedule: List[str] = []
-        dose: Optional[str] = None
-        if intent_type is PlanIntentType.med_admin:
-            dose_match = re.search(r"(\d+\s?mg|\d+\s?mcg|\d+\s?g)", payload, re.I)
-            if dose_match:
-                dose = dose_match.group(0)
-        if intent_type is PlanIntentType.lab_series:
-            schedule = _normalise_list(payload)
-        intents.append(
-            PlanIntent(type=intent_type, name=payload.split(" ")[0].strip(","), dose=dose, schedule=schedule)
-        )
-        slot_scores[f"plan_intent_{len(intents)}"] = SlotScore(rule_hit=1.0, s_ctx=0.5)
-    return intents, slot_scores
-
-
-class VisitJSONExtractor:
-    """Extractor that prefers deterministic parsing with an optional LLM."""
-
-    def __init__(self, config: LLMConfig, *, enable_llm: bool = True) -> None:
-        self.config = config
-        self.enable_llm = enable_llm and Llama is not None
-        self._llm = None
-        if self.enable_llm:  # pragma: no cover - optional dependency
-            try:
-                self._llm = Llama(
-                    model_path=config.path,
-                    n_threads=config.threads,
-                    n_ctx=config.ctx,
-                    n_gpu_layers=config.n_gpu_layers,
-                )
-            except Exception:
-                self._llm = None
-
-    def extract(self, transcript: str, chart_facts: Iterable[str] | None = None) -> ExtractionResult:
-        chart_facts = list(chart_facts or [])
-        draft_visit, slot_scores = self._rule_extract(transcript)
-        if self.enable_llm and self._llm is not None:  # pragma: no cover - requires optional dep
-            draft_visit, slot_scores = self._llm_fill(draft_visit, transcript, chart_facts, slot_scores)
-        return ExtractionResult(visit=draft_visit, slot_scores=slot_scores)
-
-    # ------------------------------------------------------------------
-    # Deterministic extraction
-    # ------------------------------------------------------------------
-    def _rule_extract(self, transcript: str) -> Tuple[VisitJSON, Dict[str, SlotScore]]:
-        text = transcript or ""
-        lower_text = text.lower()
-        chief_complaint = _first_match(text, CHIEF_COMPLAINT_PATTERNS) or "unspecified concern"
-
-        onset = match.group("value").strip() if (match := ONSET_PATTERN.search(text)) else None
-        quality = match.group("value").strip() if (match := QUALITY_PATTERN.search(text)) else None
-        modifiers = _normalise_list(match.group("value")) if (match := MODIFIER_PATTERN.search(text)) else []
-        associated = _normalise_list(match.group("value")) if (match := ASSOCIATED_PATTERN.search(text)) else []
-        red_flags = _normalise_list(match.group("value")) if (match := RED_FLAG_PATTERN.search(text)) else []
-
-        language_pref = "es" if LANG_PREF_PATTERN.search(lower_text) else None
-
-        risks: List[str] = []
-        slot_scores: Dict[str, SlotScore] = {
-            "chief_complaint": SlotScore(rule_hit=1.0, s_ctx=0.4),
-        }
-        for keyword, canonical in RISK_KEYWORDS.items():
-            if keyword in lower_text:
-                risks.append(canonical)
-        if risks:
-            slot_scores["risks"] = SlotScore(rule_hit=1.0, s_ctx=0.2)
-
-        plan_lines = [match.group(0).strip() for match in PLAN_LINE_PATTERN.finditer(text)]
-        plan_intents, plan_scores = _extract_plan_intents(plan_lines)
-        slot_scores.update(plan_scores)
-
-        visit = VisitJSON(
-            chief_complaint=chief_complaint,
-            hpi=HPI(
-                onset=onset,
-                quality=quality,
-                modifiers=modifiers,
-                associated_symptoms=associated,
-                red_flags=red_flags,
-            ),
-            exam_bits={"cv": None, "lungs": None},
-            risks=risks,
-            plan_intents=plan_intents,
-            language_pref=language_pref,
-        )
-        return visit, slot_scores
-
-    # ------------------------------------------------------------------
-    # Optional LLM backfill
-    # ------------------------------------------------------------------
-    def _llm_fill(
-        self,
-        visit: VisitJSON,
-        transcript: str,
-        chart_facts: List[str],
-        slot_scores: Dict[str, SlotScore],
-    ) -> Tuple[VisitJSON, Dict[str, SlotScore]]:
-        """Use llama.cpp to backfill clearly structured JSON."""
-
-        missing_fields: List[str] = []
-        if not visit.hpi.onset:
-            missing_fields.append("hpi.onset")
-        if not visit.hpi.quality:
-            missing_fields.append("hpi.quality")
-        if missing_fields:
-            prompt = self._build_prompt(transcript, chart_facts, missing_fields)
-            response = self._invoke_llm(prompt)
-            if response:
-                visit, slot_scores = self._merge_llm_json(visit, response, slot_scores, missing_fields)
-        return visit, slot_scores
-
-    def _build_prompt(self, transcript: str, chart_facts: List[str], fields: List[str]) -> str:
-        payload = {
-            "transcript": transcript,
-            "chart_facts": chart_facts,
-            "fields": fields,
-        }
-        return json.dumps(payload)
-
-    def _invoke_llm(self, prompt: str) -> Optional[str]:
-        if self._llm is None:
+    def _load(self) -> Llama | None:
+        if self._llm is not None:
+            return self._llm
+        if Llama is None:
+            LOGGER.warning("llama-cpp-python unavailable; falling back to deterministic rules")
             return None
-        # pragma: no cover - heavy dependency path
-        output = self._llm.create_completion(
-            prompt=prompt,
-            max_tokens=256,
-            temperature=self.config.temperature,
-            stop=["\n"]
-        )
-        text = output.get("choices", [{}])[0].get("text", "")
-        return text.strip()
+        with self._lock:
+            if self._llm is not None:
+                return self._llm
+            if not self.config.model_path.exists():
+                LOGGER.warning("LLM model path %s missing; using rules only", self.config.model_path)
+                return None
+            LOGGER.info("Loading llama.cpp model from %s", self.config.model_path)
+            self._llm = Llama(
+                model_path=str(self.config.model_path),
+                n_ctx=self.config.n_ctx,
+                n_threads=self.config.n_threads,
+                n_gpu_layers=self.config.n_gpu_layers,
+                seed=self.config.seed,
+            )
+        return self._llm
 
-    def _merge_llm_json(
-        self,
-        visit: VisitJSON,
-        response: str,
-        slot_scores: Dict[str, SlotScore],
-        missing_fields: List[str],
-    ) -> Tuple[VisitJSON, Dict[str, SlotScore]]:
-        try:
-            data = json.loads(response)
-        except json.JSONDecodeError:
-            return visit, slot_scores
-        updates = {}
-        for field in missing_fields:
-            value = data
-            for part in field.split("."):
-                if isinstance(value, dict) and part in value:
-                    value = value[part]
-                else:
-                    value = None
-                    break
-            updates[field] = value
-        visit_dict = visit.model_dump()
-        for field, value in updates.items():
-            if value in (None, "", []):
+    def _rule_extract(self, transcript: str) -> dict[str, Any]:
+        """Simple rule-based extraction to minimise LLM dependency."""
+
+        text = transcript.strip()
+        complaint = self._infer_chief_complaint(text)
+        plan_intents = self._infer_plan_intents(text)
+        risks = self._infer_risks(text)
+        exam_bits = {
+            "cv": self._find_section(text, ["cardiac exam", "heart", "cardiology"]),
+            "lungs": self._find_section(text, ["lungs", "respiratory", "pulmonary"]),
+        }
+        language = self._infer_language_pref(text)
+        hpi = {
+            "onset": self._capture_fragment(text, r"onset (?:was|is|at) (?P<value>[^\.;]+)"),
+            "quality": self._capture_fragment(text, r"quality (?:is|was) (?P<value>[^\.;]+)"),
+            "modifiers": self._collect_list(text, ["relieved", "worse with", "better with"]),
+            "associated_symptoms": self._collect_list(text, ["associated", "also notes", "denies"]),
+            "red_flags": self._collect_list(text, ["red flag", "danger", "emergent"]),
+        }
+        return {
+            "chief_complaint": complaint or "Undifferentiated presentation",
+            "hpi": hpi,
+            "exam_bits": exam_bits,
+            "risks": risks,
+            "plan_intents": plan_intents,
+            "language_pref": language,
+        }
+
+    @staticmethod
+    def _infer_chief_complaint(text: str) -> str | None:
+        patterns = [
+            r"chief complaint (?:is|:) (?P<val>[^\n\.;]+)",
+            r"presenting with (?P<val>[^\n\.;]+)",
+            r"reports (?P<val>[^\n\.;]+)",
+        ]
+        lowered = text.lower()
+        for pat in patterns:
+            match = re.search(pat, lowered)
+            if match:
+                value = match.group("val").strip().strip('. ')
+                return value.capitalize()
+        if not text:
+            return None
+        first_sentence = re.split(r"[\n\.]", text, maxsplit=1)[0]
+        return first_sentence.strip().capitalize() or None
+
+    @staticmethod
+    def _infer_language_pref(text: str) -> str | None:
+        lowered = text.lower()
+        if "speaks spanish" in lowered or "spanish interpreter" in lowered:
+            return "es"
+        if "prefers english" in lowered or "english only" in lowered:
+            return "en"
+        return None
+
+    @staticmethod
+    def _collect_list(text: str, cues: list[str]) -> list[str]:
+        results: list[str] = []
+        lowered = text.lower()
+        for cue in cues:
+            idx = lowered.find(cue)
+            if idx == -1:
                 continue
-            target = visit_dict
-            parts = field.split(".")
-            for part in parts[:-1]:
-                target = target.setdefault(part, {})
-            target[parts[-1]] = value
-            slot_scores[field] = SlotScore(rule_hit=0.0, p_llm=1.0)
+            snippet = text[idx : idx + 160]
+            parts = re.split(r"[,;]\s*", snippet)
+            for part in parts:
+                cleaned = part.replace(cue, "").strip().strip('. ')
+                if cleaned:
+                    results.append(cleaned)
+        deduped: list[str] = []
+        for value in results:
+            if value not in deduped:
+                deduped.append(value)
+        return deduped
+
+    @staticmethod
+    def _find_section(text: str, keywords: list[str], max_len: int = 160) -> str | None:
+        lowered = text.lower()
+        for keyword in keywords:
+            idx = lowered.find(keyword)
+            if idx != -1:
+                snippet = text[idx : idx + max_len].split('\n')[0].strip()
+                return snippet
+        return None
+
+    @staticmethod
+    def _capture_fragment(text: str, pattern: str) -> str | None:
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            value = match.group("value").strip().strip('. ')
+            return value
+        return None
+
+    @staticmethod
+    def _infer_plan_intents(text: str) -> list[dict[str, Any]]:
+        intents: list[dict[str, Any]] = []
+        mappings = {
+            "troponin": ("lab_series", "Serial troponin"),
+            "ekg": ("test", "12-lead ECG"),
+            "ecg": ("test", "12-lead ECG"),
+            "lactate": ("lab_series", "Lactate"),
+            "glucose": ("lab_series", "Finger-stick glucose"),
+            "education": ("education", "Patient education"),
+        }
+        lowered = text.lower()
+        for key, (ptype, name) in mappings.items():
+            if key in lowered:
+                intents.append({"type": ptype, "name": name, "dose": None, "schedule": []})
+        return intents
+
+    @staticmethod
+    def _infer_risks(text: str) -> list[str]:
+        risks: list[str] = []
+        lowered = text.lower()
+        if "diabetic" in lowered:
+            risks.append("Diabetes")
+        if "hypertension" in lowered:
+            risks.append("Hypertension")
+        if "anticoag" in lowered:
+            risks.append("Anticoagulation")
+        if "pregnant" in lowered:
+            risks.append("Pregnancy")
+        return risks
+
+    def _run_llm(self, transcript: str) -> dict[str, Any] | None:
+        llm = self._load()
+        if llm is None:
+            return None
+        prompt = self._build_prompt(transcript)
         try:
-            visit = VisitJSON.model_validate(visit_dict)
-        except ValidationError:
-            return visit, slot_scores
-        return visit, slot_scores
+            response = llm.create_completion(
+                prompt=prompt,
+                max_tokens=self.config.max_tokens,
+                temperature=self.config.temperature,
+                top_p=0.8 if self.config.temperature else 1.0,
+            )
+        except Exception as exc:  # pragma: no cover - hardware/runtime failure
+            LOGGER.exception("LLM inference failed: %s", exc)
+            return None
+        if not response:
+            return None
+        text = response.get("choices", [{}])[0].get("text", "").strip()
+        if not text:
+            return None
+        text = self._extract_json_block(text)
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            LOGGER.warning("Failed to parse LLM JSON; falling back")
+            return None
+        return data
 
+    @staticmethod
+    def _extract_json_block(text: str) -> str:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            return text[start : end + 1]
+        return text
 
-def extract_with_llm(config: LLMConfig, transcript: str, chart_facts: Iterable[str] | None = None) -> ExtractionResult:
-    extractor = VisitJSONExtractor(config=config)
-    return extractor.extract(transcript, chart_facts)
+    def _build_prompt(self, transcript: str) -> str:
+        schema = json.dumps(
+            {
+                "chief_complaint": "string",
+                "hpi": {
+                    "onset": "string|null",
+                    "quality": "string|null",
+                    "modifiers": ["string"],
+                    "associated_symptoms": ["string"],
+                    "red_flags": ["string"],
+                },
+                "exam_bits": {"cv": "string|null", "lungs": "string|null"},
+                "risks": ["string"],
+                "plan_intents": [
+                    {
+                        "type": "lab_series|test|med_admin|education",
+                        "name": "string",
+                        "dose": "string|null",
+                        "schedule": ["string"],
+                    }
+                ],
+                "language_pref": "string|null",
+            },
+            indent=2,
+        )
+        return (
+            f"{self.config.system_prompt}\n"
+            f"Transcript:\n{transcript}\n"
+            "Respond with valid JSON only matching this schema:\n"
+            f"{schema}\n"
+        )
+
+    def extract(self, transcript: str) -> VisitJSON:
+        """Extract VisitJSON using rules with optional LLM refinement."""
+
+        rule_data = self._rule_extract(transcript)
+        llm_data = self._run_llm(transcript)
+        merged = self._merge(rule_data, llm_data)
+        try:
+            visit = VisitJSON.model_validate(merged)
+        except ValidationError as exc:
+            LOGGER.error("VisitJSON validation failed: %s", exc)
+            minimal = {
+                "chief_complaint": rule_data.get("chief_complaint", "Clinical review"),
+                "hpi": {},
+                "exam_bits": {},
+                "risks": [],
+                "plan_intents": [],
+                "language_pref": None,
+            }
+            visit = VisitJSON.model_validate(minimal)
+        return visit
+
+    @staticmethod
+    def _merge(primary: dict[str, Any], secondary: dict[str, Any] | None) -> dict[str, Any]:
+        if not secondary:
+            return primary
+        merged: dict[str, Any] = primary.copy()
+        for key, value in secondary.items():
+            if value in (None, "", [], {}):
+                continue
+            if key == "plan_intents":
+                merged[key] = [
+                    intent
+                    for intent in (value or [])
+                    if isinstance(intent, dict) and intent.get("name")
+                ] or primary.get("plan_intents", [])
+            else:
+                merged[key] = value
+        return merged
+
+    def to_plan_intents(self, visit: VisitJSON) -> list[PlanIntent]:
+        """Return validated plan intents for downstream consumers."""
+
+        intents: list[PlanIntent] = []
+        for intent in visit.plan_intents:
+            if isinstance(intent, PlanIntent):
+                intents.append(intent)
+            else:
+                try:
+                    intents.append(PlanIntent.model_validate(intent))
+                except ValidationError:
+                    continue
+        return intents

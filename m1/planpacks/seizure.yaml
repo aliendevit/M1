@@ -1,17 +1,12 @@
-pathway: seizure
-guards:
-  - require_absent: ["active bleed"]
-  - check_anticoag: ["warfarin", "heparin"]
-  - check_pregnancy: []
-suggest:
-  labs:
-    - name: Serum glucose
-      schedule: ["now"]
-    - name: Antiepileptic level
-      schedule: ["stat"]
-  tests:
-    - name: Non-contrast head CT
-      at: "within 1h"
-  education:
-    - topic: seizure_safety
-      language: "{{ visit.language_pref or 'en' }}"
+id: seizure
+summary: Stabilization checklist for suspected seizure.
+actions:
+  - label: Point-of-care glucose
+    guard_flags: []
+    steps:
+      - Confirm bedside glucose within 15 minutes.
+      - Treat hypoglycemia per protocol if detected.
+  - label: Safety counseling
+    guard_flags: []
+    steps:
+      - Provide driving restriction counseling if seizure confirmed.

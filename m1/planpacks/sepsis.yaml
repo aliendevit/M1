@@ -1,21 +1,16 @@
-pathway: sepsis
-guards:
-  - require_absent: ["active bleed"]
-  - check_renal: []
-  - check_anticoag: ["warfarin", "heparin"]
-suggest:
-  labs:
-    - name: Lactate
-      schedule: ["now", "+6h"]
-    - name: Blood cultures
-      schedule: ["now"]
-  tests:
-    - name: Broad-spectrum antibiotics timer
-      at: "within 1h"
-  meds:
-    - name: Fluid bolus
-      dose: "30 mL/kg"
-      route: "IV"
-  education:
-    - topic: sepsis_care_plan
-      language: "{{ visit.language_pref or 'en' }}"
+id: sepsis
+summary: Conservative bundle for possible sepsis.
+actions:
+  - label: Broad assessment
+    guard_flags:
+      - renal
+    steps:
+      - Obtain lactate level.
+      - Repeat vital signs every 30 minutes until stable.
+  - label: Fluid resuscitation discussion
+    guard_flags:
+      - active_bleed
+      - renal
+    steps:
+      - Discuss balanced crystalloids 30 mL/kg if no contraindication.
+      - Document shared decision with patient/family.

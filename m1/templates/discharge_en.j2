@@ -1,19 +1,29 @@
-# Discharge Instructions (English)
+# Discharge Instructions
 
-**Diagnosis:** {{ visit.chief_complaint }}
+Dear {{ patient_name }},
 
-**Medications / Plan:**
-{% if visit.plan_intents %}
-{% for intent in visit.plan_intents %}- {{ intent.name }}{% if intent.dose %} – take {{ intent.dose }}{% endif %}{% if intent.schedule %} on {{ intent.schedule|join(', ') }}{% endif %}
-{% endfor %}
-{% else %}
-- Review medications with primary team.
+Today we evaluated you for {{ visit.chief_complaint }}. Based on the information we have, your main diagnoses and risks include: {% if visit.risks %}{{ visit.risks | join(', ') }}{% else %}routine follow-up{% endif %}.
+
+## Care Plan
+
+- Take prescribed medicines exactly as instructed.
+- Rest and stay hydrated.
+- Follow any specialist appointments listed below.
+
+## When to Seek Help
+
+Call your doctor or return to the emergency department if you notice new or worsening symptoms, high fever, chest pain, shortness of breath, or any concerns you feel are urgent.
+
+## Follow-up
+
+Preferred language: {{ visit.language_pref or 'English' }}.
+Next steps:
+{% if follow_up %}
+{% for item in follow_up -%}
+- {{ item }}
+{% endfor -%}
+{% else %}- Schedule a follow-up visit with your primary care team within one week.
 {% endif %}
 
-**When to return:**
-- Seek care if symptoms worsen or new red-flag symptoms such as {{ visit.hpi.red_flags|join(', ') if visit.hpi.red_flags else 'chest pain, shortness of breath, or syncope' }} occur.
-
-**Teach-back checklist:**
-- [ ] Patient repeated medication plan correctly.
-- [ ] Patient understands follow-up timing.
-- [ ] Patient knows warning signs that require urgent care.
+Thank you,
+MinuteOne Care Team

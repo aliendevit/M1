@@ -1,0 +1,49 @@
+# path: localization/strings_es.yaml
+app:
+  name: "MinuteOne (M1)"
+tabs:
+  note: "Nota"
+  handoff: "Entrega (I-PASS)"
+  discharge: "Alta"
+  sources: "Fuentes + Chips"
+buttons:
+  refresh_note: "Actualizar Nota"
+  lang_en: "EN"
+  lang_es: "ES"
+  accept: "Aceptar (Enter)"
+  evidence: "Evidencia (E)"
+  override: "Anular (requiere motivo)"
+  batch_accept: "Aceptar todo (Enter)"
+  close: "Cerrar (Esc)"
+consent:
+  title: "M1 — Sin conexión por defecto"
+  offline_notice: |
+    MinuteOne (M1) funciona sin conexión por defecto.
+    • Sin telemetría.
+    • Sin salida de PHI.
+    Puede habilitar funciones en línea opcionales. Está DESACTIVADO por defecto.
+  enable_online: "Habilitar funciones en línea (no recomendado)"
+  continue: "Continuar"
+  exit: "Salir"
+lock:
+  title_locked: "M1 — Bloqueado"
+  title_set: "M1 — Establecer contraseña"
+  set_prompt: "Defina una contraseña para desbloquear su sesión."
+  locked_prompt: "La sesión se bloqueó por inactividad."
+  unlock: "Desbloquear"
+  set: "Establecer"
+evidence:
+  title: "Evidencia"
+  list_label: "IDs de fuentes de evidencia:"
+discharge:
+  headline_en: "Discharge Instructions"
+  headline_es: "Instrucciones de Alta"
+  when_to_seek_help_en: "When to seek help: worsening pain, trouble breathing, high fever, fainting."
+  when_to_seek_help_es: "Cuándo buscar ayuda: dolor empeorando, dificultad para respirar, fiebre alta, desmayo."
+chips:
+  header: "Chips"
+  header_batch_ready: "Chips — Lote listo"
+bands:
+  B: "●"
+  C: "▲"
+  D: "■"

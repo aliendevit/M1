@@ -1,35 +1,30 @@
-# Safety & Guard Catalogue
+# Safety Policy
 
-MinuteOne suggestions are assistive only. The following guardrails enforce conservative defaults and log overrides for audit.
+MinuteOne enforces conservative guardrails so clinicians remain in control.
 
-## Guard Checks
+## Guard Catalogue
 
-| Guard | Purpose | Trigger |
-| --- | --- | --- |
-| `require_absent` | Blocks pathway when a listed risk is present in VisitJSON (e.g., `active bleed`). | Intersection between visit risks and prohibited list. |
-| `check_allergy` | Prevents medication suggestions if patient has matching allergy. | Allergies pulled from chart cache (not populated in demo). |
-| `check_renal` | Flags dosing suggestions when latest creatinine > 2.0 mg/dL. | Creatinine delta computed in SQLite cache. |
-| `check_pregnancy` | Requires clinician confirmation before exposing teratogenic plans. | Visit risk list contains `pregnancy`. |
-| `check_anticoag` | Blocks procedures/meds that conflict with anticoagulant therapy. | Planned anticoagulant intent overlaps guard list. |
+- **Allergy** – blocks plan elements requiring agents with documented allergies. Unknown status defaults to blocked.
+- **Active Bleed** – prevents actions that could worsen hemorrhage risk when bleeding is noted or cannot be ruled out.
+- **Pregnancy** – requires explicit override when pregnancy status is uncertain and the intervention carries fetal risk.
+- **Renal** – uses eGFR thresholds (<30 ml/min high risk, <60 caution) and blocks contrast-requiring steps when status unknown.
+- **Anticoagulation** – highlights active anticoagulant therapy before suggesting invasive or high bleed-risk actions.
 
-## Override Policy
+Each guard returns a band (A–D). Bands C/D require verbal confirmation; band D entries can only proceed with an override reason recorded via `/chips/resolve`.
 
-- Blocked guards surface as **D-band** chips and cannot be accepted without an override reason.
-- `/chips/resolve` must include `reason` when `action == "override_blocked"`; the audit log persists `{chip_id, before, after, reason}`.
-- Reasons should be descriptive (e.g., "Discussed with cardiology â€“ ASA given despite low-grade bleed").
+## Override Workflow
 
-## Logging Expectations
+1. Clinician reviews the flagged chip (band D).
+2. If override is necessary, the UI requires entry of a textual justification.
+3. The action, reason, and timestamp are appended to `logs/chip_audit.jsonl`.
+4. Downstream automation never executes orders: the tool surfaces guidance only.
 
-| Event | Payload |
-| --- | --- |
-| `consent` | `{timestamp, user, granted: bool}` |
-| `compose` | `{timestamp, visit_id, artifacts: [note, handoff, discharge], citations: [...]}` |
-| `chip_resolved` | `{timestamp, chip_id, action, value, reason?}` |
+## Logging
 
-Logs are written to `data/audit.log.jsonl`. Retention defaults to 30 days and can be adjusted in `config.yaml`.
+- Every compose event requires a consent toggle.
+- Chip resolutions are recorded as JSON lines with `{ts, chip_id, action, value, reason}`.
+- Audit files stay on local disk; rotate or archive via institutional policy.
 
-## Clinical Review
+## Fallback Behaviour
 
-- Guard catalogue reviewed quarterly with clinical leadership.
-- Any override trend >10% triggers review of pathway definitions and plan pack content.
-- Near misses are captured via the audit log and summarised for the pilot retrospective.
+If structured data is missing (e.g., eGFR absent), guards default to "unknown" (band D), forcing clinician review. The system does not guess or infer missing safety data.

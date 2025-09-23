@@ -1,0 +1,42 @@
+# path: pyproject.toml
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "minuteone-m1"
+version = "0.1.0"
+description = "MinuteOne (M1): offline-first bedside side-panel + local FastAPI"
+readme = "docs/README.md"
+requires-python = ">=3.10"
+authors = [{name="MinuteOne Team"}]
+license = {text = "Proprietary"}
+dependencies = [
+    "fastapi==0.110.0",
+    "uvicorn==0.29.0",
+    "orjson==3.10.0",
+    "pydantic==2.7.1",
+    "jinja2==3.1.3",
+    "faster-whisper==1.0.0",
+    "webrtcvad==2.0.10",
+    "llama-cpp-python==0.2.77",
+    "numpy==1.26.4",
+    # Exports (optional but pinned)
+    "reportlab==4.0.9",
+    "python-docx==1.1.0",
+    "pyrtf-ng==0.6.3",
+    # UI
+    "PyQt5==5.15.10",
+    # Tests
+    "pytest==8.2.1"
+]
+
+[project.scripts]
+m1-api = "backend.main:app"                     # for uvicorn serve target: uvicorn m1-api
+m1-perf = "scripts.perf_harness:main"
+m1-wer  = "scripts.wer_harness:main"
+m1-sbom = "scripts.sbom_cyclonedx:main"
+
+[tool.setuptools]
+packages = ["backend", "backend.api", "backend.services", "backend.db", "backend.models", "backend.rules", "ui", "ui.widgets", "exports", "scripts"]
+include-package-data = true

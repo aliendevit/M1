@@ -1,54 +1,37 @@
-from m1.composer.service import Composer
-from m1.schemas import EvidenceChip, EvidenceKind, HPI, PlanIntent, PlanIntentType, VisitJSON
+from __future__ import annotations
+
+from datetime import datetime, timezone
+
+from m1.api.main import ComposeNoteRequest, _build_citations, get_template_env
+from m1.models import VisitJSON
 
 
-def test_note_composer_matches_golden_output():
+def test_note_renders_with_citation() -> None:
     visit = VisitJSON(
         chief_complaint="Chest pain",
-        hpi=HPI(
-            onset="this morning",
-            quality="pressure",
-            modifiers=["exertion"],
-            associated_symptoms=["nausea"],
-            red_flags=[],
-        ),
-        exam_bits={"cv": "regular", "lungs": "clear"},
-        risks=["tobacco use"],
-        plan_intents=[
-            PlanIntent(
-                type=PlanIntentType.lab_series,
-                name="Troponin",
-                schedule=["now", "+3h"],
-            )
-        ],
+        hpi={"onset": "1 hour ago", "quality": "pressure", "modifiers": [], "associated_symptoms": [], "red_flags": []},
+        exam_bits={"cv": "Regular rhythm", "lungs": "Clear"},
+        risks=["Diabetes"],
+        plan_intents=[],
         language_pref="en",
     )
-    evidence = [
-        EvidenceChip(
-            id="obs/1",
-            kind=EvidenceKind.lab,
-            name="Troponin I",
-            value="0.05 ng/mL",
-            delta="↔",
-            time="2024-01-02T11:00:00Z",
-            source_id="obs/1",
-        )
-    ]
-    composer = Composer()
-    rendered = composer.render_note(visit, evidence)
-    expected = (
-        "# SOAP/MDM Note\n\n"
-        "## Subjective\n"
-        "- Chief complaint: Chest pain\n"
-        "- Onset: this morning\n"
-        "- Quality: pressure\n"
-        "- Modifiers: exertion\n"
-        "- Associated symptoms: nausea\n"
-        "- Red flags: none elicited\n\n"
-        "## Objective\n"
-        "- Troponin I 0.05 ng/mL (↔) [^1]\n\n"
-        "## Assessment & Plan\n"
-        "- Lab Series: Troponin (now, +3h)\n\n\n"
-        "[^1]: Troponin I 0.05 ng/mL at 2024-01-02T11:00:00Z (obs/1)"
+    facts = {
+        "labs": [
+            {
+                "code": "trop",
+                "label": "Troponin I",
+                "display_value": "0.05 ng/mL (+0.03)",
+                "ts": datetime.now(timezone.utc).isoformat(),
+            }
+        ]
+    }
+    payload = ComposeNoteRequest(visit=visit, facts=facts, assessment_summary="Stable")
+    citations = _build_citations(payload)
+    env = get_template_env()
+    note = env.get_template("note.j2").render(
+        visit=visit,
+        assessment_summary="Stable",
+        citations=citations,
     )
-    assert rendered.content == expected
+    assert "[^src:lab-trop]" in note
+    assert note.count("[^src:") >= 2

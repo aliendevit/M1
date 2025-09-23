@@ -1,0 +1,22 @@
+# path: backend/planpacks/sepsis.yaml
+suggestions:
+  - label: "Sepsis bundle: lactate, cultures, broad-spectrum antibiotics"
+    proposed: "bundle now"
+    type: "lab_series"
+    risk: "high"
+    guards: ["pregnancy"]
+  - label: "30 mL/kg fluids unless contraindicated"
+    proposed: "30 mL/kg crystalloid"
+    type: "med_admin"
+    risk: "high"
+    guards: ["resp_depression", "active_bleed", "anticoag_conflict"]
+  - label: "Source control imaging"
+    proposed: "Site-directed imaging"
+    type: "test"
+    risk: "medium"
+    guards: ["renal_function_for_contrast", "pregnancy"]
+  - label: "Education: signs of worsening infection"
+    proposed: "teach-back"
+    type: "education"
+    risk: "low"
+    guards: []

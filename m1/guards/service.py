@@ -1,92 +1,78 @@
-"""Guard checks for clinical plan suggestions."""
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
-from typing import Iterable, List, Optional
+from typing import Any, Literal
 
-from ..schemas import EvidenceChip, PlanpackGuardFlag, PlanpackResponse, PlanpackSuggestion, VisitJSON
-
-
-@dataclass
-class GuardContext:
-    allergies: List[str]
-    risks: List[str]
-    labs: dict[str, float]
-    pregnancy: Optional[bool]
-    anticoagulants: List[str]
+GuardStatus = Literal["pass", "fail", "unknown"]
 
 
-class GuardService:
-    def build_context(self, visit: VisitJSON, evidence: Iterable[EvidenceChip]) -> GuardContext:
-        allergies = []
-        labs: dict[str, float] = {}
-        for chip in evidence:
-            match = re.search(r"(-?\d+(?:\.\d+)?)", chip.value)
-            if match:
-                labs[chip.name.lower()] = float(match.group(1))
-        anticoagulants = [intent.name.lower() for intent in visit.plan_intents if "heparin" in intent.name.lower()]
-        pregnancy = any("pregnancy" in risk.lower() for risk in visit.risks) or None
-        return GuardContext(
-            allergies=allergies,
-            risks=visit.risks,
-            labs=labs,
-            pregnancy=pregnancy,
-            anticoagulants=anticoagulants,
-        )
+@dataclass(slots=True)
+class GuardResult:
+    guard: str
+    status: GuardStatus
+    band: Literal["A", "B", "C", "D"]
+    rationale: str
 
-    def evaluate_guard(self, guard: dict, context: GuardContext) -> PlanpackGuardFlag:
-        guard_type = next(iter(guard))
-        payload = guard[guard_type]
-        if guard_type == "require_absent":
-            prohibited = {item.lower() for item in payload}
-            conflicts = [risk for risk in context.risks if risk.lower() in prohibited]
-            status = "blocked" if conflicts else "clear"
-            detail = ", ".join(conflicts) if conflicts else None
-            return PlanpackGuardFlag(guard="require_absent", status=status, detail=detail)
-        if guard_type == "check_allergy":
-            targets = {item.lower() for item in payload}
-            conflicts = [allergy for allergy in context.allergies if allergy.lower() in targets]
-            status = "blocked" if conflicts else "clear"
-            detail = ", ".join(conflicts) if conflicts else None
-            return PlanpackGuardFlag(guard="check_allergy", status=status, detail=detail)
-        if guard_type == "check_renal":
-            creatinine = context.labs.get("creatinine", 0.0)
-            status = "blocked" if creatinine and creatinine > 2.0 else "clear"
-            detail = f"Cr {creatinine}" if status == "blocked" else None
-            return PlanpackGuardFlag(guard="check_renal", status=status, detail=detail)
-        if guard_type == "check_pregnancy":
-            if context.pregnancy:
-                return PlanpackGuardFlag(guard="check_pregnancy", status="blocked", detail="pregnancy noted")
-            return PlanpackGuardFlag(guard="check_pregnancy", status="clear", detail=None)
-        if guard_type == "check_anticoag":
-            targets = {item.lower() for item in payload}
-            conflicts = [drug for drug in context.anticoagulants if drug in targets]
-            status = "blocked" if conflicts else "clear"
-            detail = ", ".join(conflicts) if conflicts else None
-            return PlanpackGuardFlag(guard="check_anticoag", status=status, detail=detail)
-        return PlanpackGuardFlag(guard=guard_type, status="unknown", detail=None)
-
-    def evaluate(self, guards: List[dict], visit: VisitJSON, evidence: Iterable[EvidenceChip]) -> List[PlanpackGuardFlag]:
-        context = self.build_context(visit, evidence)
-        return [self.evaluate_guard(guard, context) for guard in guards]
-
-    def suggestions(self, suggest: dict, guard_flags: List[PlanpackGuardFlag]) -> List[PlanpackSuggestion]:
-        if any(flag.status == "blocked" for flag in guard_flags):
-            return []
-        suggestions: List[PlanpackSuggestion] = []
-        for kind, entries in (suggest or {}).items():
-            for entry in entries:
-                suggestions.append(PlanpackSuggestion(kind=kind, payload={k: str(v) for k, v in entry.items()}))
-        return suggestions
+    @property
+    def requires_override(self) -> bool:
+        return self.status in {"fail", "unknown"}
 
 
-def evaluate_planpack_with_guards(
-    guard_service: GuardService,
-    pack,
-    visit: VisitJSON,
-    evidence: Iterable[EvidenceChip],
-) -> PlanpackResponse:
-    guard_flags = guard_service.evaluate(pack.guards, visit, evidence)
-    suggestions = guard_service.suggestions(pack.suggest, guard_flags)
-    return PlanpackResponse(suggestions=suggestions, guard_flags=guard_flags)
+def guard_allergy(facts: dict[str, Any], substance: str) -> GuardResult:
+    allergies = [item.lower() for item in facts.get("allergies", [])]
+    if not allergies:
+        return GuardResult("allergy", "unknown", "D", "Allergy history unavailable")
+    if substance.lower() in allergies:
+        return GuardResult("allergy", "fail", "D", f"Recorded allergy to {substance}")
+    return GuardResult("allergy", "pass", "B", "No matching allergy documented")
+
+
+def guard_active_bleed(facts: dict[str, Any]) -> GuardResult:
+    conditions = [item.lower() for item in facts.get("conditions", [])]
+    if not conditions:
+        return GuardResult("active_bleed", "unknown", "D", "Bleeding status unknown")
+    if any("bleed" in cond or "hemorrh" in cond for cond in conditions):
+        return GuardResult("active_bleed", "fail", "D", "Active bleeding documented")
+    return GuardResult("active_bleed", "pass", "B", "No active bleeding in record")
+
+
+def guard_pregnancy(facts: dict[str, Any]) -> GuardResult:
+    demographics = facts.get("demographics", {})
+    sex = (demographics.get("sex") or "").lower()
+    pregnant = demographics.get("pregnant")
+    if pregnant is True:
+        return GuardResult("pregnancy", "fail", "D", "Pregnancy confirmed")
+    if pregnant is False:
+        return GuardResult("pregnancy", "pass", "B", "Not pregnant per chart")
+    if sex not in {"female", "f"}:
+        return GuardResult("pregnancy", "pass", "B", "Pregnancy not applicable")
+    return GuardResult("pregnancy", "unknown", "D", "Pregnancy status not documented")
+
+
+def guard_renal(facts: dict[str, Any], need_contrast: bool = False) -> GuardResult:
+    labs = facts.get("labs", {})
+    egfr = labs.get("egfr")
+    if egfr is None:
+        rationale = "No eGFR on file; contrast requires confirmation" if need_contrast else "Renal status unknown"
+        return GuardResult("renal", "unknown", "D", rationale)
+    try:
+        egfr_value = float(egfr)
+    except (TypeError, ValueError):
+        return GuardResult("renal", "unknown", "D", "Invalid eGFR value")
+    if egfr_value < 30:
+        rationale = "eGFR < 30; high risk for contrast" if need_contrast else "eGFR severely reduced"
+        return GuardResult("renal", "fail", "D", rationale)
+    band = "C" if egfr_value < 60 else "B"
+    rationale = f"eGFR {egfr_value:.0f} ml/min"
+    return GuardResult("renal", "pass", band, rationale)
+
+
+def guard_anticoag(facts: dict[str, Any]) -> GuardResult:
+    meds = [item.lower() for item in facts.get("medications", [])]
+    anticoag_agents = {"warfarin", "apixaban", "rivaroxaban", "dabigatran", "edoxaban", "heparin"}
+    if not meds:
+        return GuardResult("anticoag", "unknown", "D", "Medication list unavailable")
+    if anticoag_agents.intersection(meds):
+        agent = next(iter(anticoag_agents.intersection(meds)))
+        return GuardResult("anticoag", "fail", "D", f"Active anticoagulant: {agent}")
+    return GuardResult("anticoag", "pass", "B", "No anticoagulants documented")

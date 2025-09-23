@@ -1,102 +1,57 @@
 {
-  "resourceType": "Bundle",
-  "type": "collection",
-  "entry": [
+  "patient": {
+    "id": "demo-patient",
+    "name": "Demo Patient"
+  },
+  "encounters": [
     {
-      "resource": {
-        "resourceType": "Observation",
-        "id": "trop-1",
-        "status": "final",
-        "category": [
-          {"coding": [{"code": "laboratory"}]}
-        ],
-        "code": {
-          "text": "Troponin I",
-          "coding": [{"display": "Troponin I"}]
-        },
-        "effectiveDateTime": "2024-01-02T08:00:00Z",
-        "valueQuantity": {"value": 0.03, "unit": "ng/mL"}
-      }
+      "id": "enc-001",
+      "patient_id": "demo-patient",
+      "started_at": "2025-09-22T10:00:00Z",
+      "finished_at": "2025-09-22T12:00:00Z",
+      "type": "ED"
+    }
+  ],
+  "observations": [
+    {
+      "id": "obs-trop-1",
+      "patient_id": "demo-patient",
+      "encounter_id": "enc-001",
+      "ts": "2025-09-22T10:30:00Z",
+      "code": "TROP",
+      "label": "Troponin I",
+      "value": 0.02,
+      "unit": "ng/mL"
     },
     {
-      "resource": {
-        "resourceType": "Observation",
-        "id": "trop-2",
-        "status": "final",
-        "category": [
-          {"coding": [{"code": "laboratory"}]}
-        ],
-        "code": {
-          "text": "Troponin I",
-          "coding": [{"display": "Troponin I"}]
-        },
-        "effectiveDateTime": "2024-01-02T11:00:00Z",
-        "valueQuantity": {"value": 0.05, "unit": "ng/mL"}
-      }
+      "id": "obs-trop-2",
+      "patient_id": "demo-patient",
+      "encounter_id": "enc-001",
+      "ts": "2025-09-22T11:45:00Z",
+      "code": "TROP",
+      "label": "Troponin I",
+      "value": 0.05,
+      "unit": "ng/mL"
     },
     {
-      "resource": {
-        "resourceType": "Observation",
-        "id": "lactate-1",
-        "status": "final",
-        "category": [
-          {"coding": [{"code": "laboratory"}]}
-        ],
-        "code": {
-          "text": "Lactate",
-          "coding": [{"display": "Lactate"}]
-        },
-        "effectiveDateTime": "2024-01-02T08:30:00Z",
-        "valueQuantity": {"value": 2.1, "unit": "mmol/L"}
-      }
-    },
+      "id": "obs-egfr",
+      "patient_id": "demo-patient",
+      "encounter_id": "enc-001",
+      "ts": "2025-09-22T10:15:00Z",
+      "code": "eGFR",
+      "label": "Estimated GFR",
+      "value": 58,
+      "unit": "mL/min"
+    }
+  ],
+  "notes": [
     {
-      "resource": {
-        "resourceType": "Observation",
-        "id": "lactate-2",
-        "status": "final",
-        "category": [
-          {"coding": [{"code": "laboratory"}]}
-        ],
-        "code": {
-          "text": "Lactate",
-          "coding": [{"display": "Lactate"}]
-        },
-        "effectiveDateTime": "2024-01-02T14:30:00Z",
-        "valueQuantity": {"value": 1.8, "unit": "mmol/L"}
-      }
-    },
-    {
-      "resource": {
-        "resourceType": "Observation",
-        "id": "creatinine-1",
-        "status": "final",
-        "category": [
-          {"coding": [{"code": "laboratory"}]}
-        ],
-        "code": {
-          "text": "Creatinine",
-          "coding": [{"display": "Creatinine"}]
-        },
-        "effectiveDateTime": "2024-01-01T07:15:00Z",
-        "valueQuantity": {"value": 1.1, "unit": "mg/dL"}
-      }
-    },
-    {
-      "resource": {
-        "resourceType": "Observation",
-        "id": "creatinine-2",
-        "status": "final",
-        "category": [
-          {"coding": [{"code": "laboratory"}]}
-        ],
-        "code": {
-          "text": "Creatinine",
-          "coding": [{"display": "Creatinine"}]
-        },
-        "effectiveDateTime": "2024-01-02T07:15:00Z",
-        "valueQuantity": {"value": 1.4, "unit": "mg/dL"}
-      }
+      "id": "note-1",
+      "patient_id": "demo-patient",
+      "encounter_id": "enc-001",
+      "ts": "2025-09-22T11:00:00Z",
+      "author": "Dr. Rivers",
+      "content": "Patient reported chest pain radiating to left arm. Serial troponin trend planned."
     }
   ]
 }
