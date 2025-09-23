@@ -1,6 +1,0 @@
-# path: tests/fixtures/sample_facts.json
-[
-  {"id":"obs/123","kind":"lab","name":"Troponin I","value":"0.04 ng/mL","time":"2025-09-21T07:45","source_id":"obs/123"},
-  {"id":"obs/124","kind":"lab","name":"Troponin I","value":"0.06 ng/mL","time":"2025-09-21T10:45","source_id":"obs/124"},
-  {"id":"note/1","kind":"note","name":"Triage note","value":"patient is pregnant, asa allergy", "time":"2025-09-21T07:30","source_id":"note/1"}
-]
