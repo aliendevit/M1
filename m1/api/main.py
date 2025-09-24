@@ -1,7 +1,6 @@
 """FastAPI application for the MinuteOne backend."""
 from __future__ import annotations
 
-
 from functools import lru_cache
 from pathlib import Path
 from typing import AsyncIterator
@@ -228,6 +227,33 @@ async def suggest_planpack(request: PlanpackRequest) -> PlanpackResponse:
     )
 
 
+@app.post("/compose/note", response_model=ComposeResponse)
+async def compose_note(
+    payload: ComposeRequest,
+    cache: SQLiteChartCache = Depends(get_cache),
+    env: Environment = Depends(get_template_env),
+) -> ComposeResponse:
+    return _compose_document("note", payload, cache, env)
+
+
+@app.post("/compose/handoff", response_model=ComposeResponse)
+async def compose_handoff(
+    payload: ComposeRequest,
+    cache: SQLiteChartCache = Depends(get_cache),
+    env: Environment = Depends(get_template_env),
+) -> ComposeResponse:
+    return _compose_document("handoff", payload, cache, env)
+
+
+@app.post("/compose/discharge", response_model=ComposeResponse)
+async def compose_discharge(
+    payload: ComposeRequest,
+    cache: SQLiteChartCache = Depends(get_cache),
+    env: Environment = Depends(get_template_env),
+) -> ComposeResponse:
+    return _compose_document("discharge", payload, cache, env)
+
+
 @app.post("/compose/{template_name}", response_model=ComposeResponse)
 async def compose_document(
     template_name: str,
@@ -235,22 +261,9 @@ async def compose_document(
     cache: SQLiteChartCache = Depends(get_cache),
     env: Environment = Depends(get_template_env),
 ) -> ComposeResponse:
-    mapping = {
-        "note": "note.j2",
-        "handoff": "handoff_ipass.j2",
-        "discharge": f"discharge_{payload.locale}.j2",
-    }
-    if template_name not in mapping:
-        raise HTTPException(status_code=404, detail="Template not found")
-    template_file = mapping[template_name]
-    try:
-        template: Template = env.get_template(template_file)
-    except Exception as exc:  # pragma: no cover
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-    bundle = payload.bundle or _bundle_from_cache(cache, payload.patient_id)
-    rendered = template.render(bundle=bundle, locale=payload.locale)
-    return ComposeResponse(patient_id=payload.patient_id, template=template_file, content=rendered)
+    if payload.template and payload.template != template_name:
+        raise HTTPException(status_code=400, detail="Template mismatch between path and payload")
+    return _compose_document(template_name, payload, cache, env)
 
 
 @app.post("/export", response_model=ExportResponse)
@@ -265,6 +278,30 @@ async def export_document(
 @app.get("/metrics/session", response_model=MetricsResponse)
 async def metrics_session() -> MetricsResponse:
     return MetricsResponse(session_id="local", active_users=1, processed_transcripts=0)
+
+
+def _compose_document(
+    template_key: str,
+    payload: ComposeRequest,
+    cache: SQLiteEvidenceCache,
+    env: Environment,
+) -> ComposeResponse:
+    mapping = {
+        "note": "note.j2",
+        "handoff": "handoff_ipass.j2",
+        "discharge": f"discharge_{payload.locale}.j2",
+    }
+    if template_key not in mapping:
+        raise HTTPException(status_code=404, detail="Template not found")
+    template_file = mapping[template_key]
+    try:
+        template: Template = env.get_template(template_file)
+    except Exception as exc:  # pragma: no cover
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    bundle = payload.bundle or _bundle_from_cache(cache, payload.patient_id)
+    rendered = template.render(bundle=bundle, locale=payload.locale)
+    return ComposeResponse(patient_id=payload.patient_id, template=template_file, content=rendered)
 
 
 def _bundle_from_cache(cache: SQLiteEvidenceCache, patient_id: str) -> dict:

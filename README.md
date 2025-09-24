@@ -85,7 +85,9 @@ Use `M1_CACHE_DB` or `M1_LLM_THREADS` to override individual settings without ed
 - `POST /ingest` - transcribes and persists visit bundle.
 - `POST /extract/visit` - returns structured VisitJSON.
 - `GET /facts/context` - fetches cached clinical snippets.
-- `POST /compose/{note|handoff|discharge}` - renders templates.
+- `POST /compose/note` - renders SOAP note template.
+- `POST /compose/handoff` - renders I-PASS handoff template.
+- `POST /compose/discharge` - renders discharge instructions (locale aware).
 - `POST /suggest/planpack` - returns plan pack guidance.
 - `POST /chips/resolve` - scores chips.
 - `GET /evidence/{patient_id}` - retrieves structured evidence.

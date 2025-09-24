@@ -64,7 +64,7 @@ class ExtractResponse(BaseModel):
 
 class ComposeRequest(BaseModel):
     patient_id: str
-    template: str = Field(pattern="^(note|handoff|discharge)$")
+    template: Optional[str] = Field(default=None, pattern="^(note|handoff|discharge)$")
     bundle: Optional[dict] = None
     locale: str = Field(default="en")
 
