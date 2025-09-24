@@ -1,56 +1,63 @@
 # MinuteOne (M1)
 
-MinuteOne (M1) is an offline-first clinical assistant that turns bedside conversations into structured documentation: SOAP/MDM notes, I-PASS handoffs, bilingual discharge instructions, and conservative plan pack suggestions. The project targets Python 3.12 and runs entirely on local hardware so protected health information never leaves the device.
+MinuteOne (M1) is an offline, edge-first clinical assistant designed to help inpatient clinicians convert bedside conversations into structured documentation. M1 assembles SOAP/MDM notes, I-PASS handoffs, bilingual discharge instructions, and guard-railed plan suggestions while keeping PHI on-device.
+
+## Feature Highlights
+- Offline-first pipeline with rule-centric extraction backed by a local llama-cpp fallback model.
+- Deterministic composition using Jinja2 templates for notes, I-PASS, and discharge summaries.
+- Evidence cache backed by SQLite with lab deltas and reusable chips.
+- Safety guards that demand explicit overrides on uncertainty or risk detection.
+- PyQt5 desktop client with keyboard-first chip confirmation and export to Markdown/PDF/RTF.
+- Synthetic demo data and ingest utilities for evaluation.
 
 ## Quickstart
 
 ```bash
 python -m venv .venv
-. .venv/Scripts/activate  # On Windows; use `source .venv/bin/activate` on Unix
+# Linux/macOS
+source .venv/bin/activate
+# Windows (PowerShell)
+.venv\Scripts\Activate.ps1
+
 pip install -r requirements.txt
 python -m m1.scripts.ingest demo/patient_bundle.json
-uvicorn m1.api.main:app --reload --port 8000
+uvicorn m1.api.main:app --reload
 ```
 
-Launch the desktop UI in a second terminal:
+Launch the desktop UI when the API is running or in standalone mode:
 
 ```bash
 python -m m1.ui.app
 ```
 
-Run the full test suite:
+Run the demo bundle ingest first so that context chips and deltas are available in the cache.
+
+### Testing
 
 ```bash
 pytest -q
 ```
 
-## Features
+## Repository Structure
+- `m1/api/main.py` – FastAPI service surface, singletons, and template helpers.
+- `m1/extractor/llm.py` – Rule-driven visit extraction with llama-cpp fallback.
+- `m1/evidence/sqlite_cache.py` – SQLite cache with FTS support and delta computation.
+- `m1/chips/service.py` – Confidence scoring and chip banding logic.
+- `m1/guards/service.py` – Guard policies enforcing conservative clinical behavior.
+- `m1/ui/app.py` – PyQt5 application for note composition and export.
+- `m1/templates/` – Deterministic Jinja2 templates for note, handoff, and discharge.
+- `m1/planpacks/` – YAML plan packs curated for chest pain, seizure, and sepsis pathways.
+- `demo/patient_bundle.json` – Synthetic bundle demonstrating troponin deltas.
+- `tests/` – Unit tests covering chips, extraction, composition, and evidence deltas.
 
-- **Offline by default**: llama.cpp and faster-whisper load local models only; no external requests.
-- **Deterministic composition**: Jinja2 templates combine structured extraction with cached evidence.
-- **Evidence-aware chips**: Confidence bands (A–D) ensure clinicians stay in control.
-- **Safety guards**: Renal, bleeding, pregnancy, allergy, and anticoagulant checks gate plan suggestions.
-- **Audit ready**: Chip resolutions append to a JSONL audit log.
-- **Export tools**: Markdown, PDF, and RTF exports for every composed artefact.
+## Documentation
+- `docs/RUNBOOK.md` – Operational runbook with command examples.
+- `docs/SAFETY.md` – Guard policies and override expectations.
+- `docs/MODEL.md` – LLM and ASR implementation notes.
+- `docs/CHANGELOG.md` – Release history.
 
-## Repository Layout
+## Safety and Privacy
+MinuteOne never places orders automatically and never transmits PHI. Guards block high-risk actions until a clinician documents context and an override reason, with all interactions captured in the local audit log (`config.yaml` ? `logging.audit_log`). See `docs/SAFETY.md` for deeper guidance.
 
-- `m1/api/main.py` – FastAPI service exposing extraction, composition, plan packs, metrics, and audit endpoints.
-- `m1/extractor/llm.py` – Rule-first extractor with optional llama.cpp refinement returning strict Pydantic models.
-- `m1/evidence/sqlite_cache.py` – SQLite cache with lab delta computation and evidence chip helpers.
-- `m1/chips/service.py` – Confidence math and banding utilities.
-- `m1/guards/service.py` – Safety guard evaluations.
-- `m1/templates/` – Jinja2 templates for note, handoff, and discharge artefacts.
-- `m1/ui/app.py` – PyQt5 desktop UI with keyboard-focused chips rail.
-- `m1/export/exporter.py` – Markdown, PDF, and RTF export helpers.
-- `m1/scripts/ingest.py` – Demo data ingestion into the local cache.
-- `demo/` – Synthetic FHIR-like bundle for tutorials and tests.
-- `tests/` – Deterministic pytest suite covering chips, extraction, composition, and evidence deltas.
-
-## Roadmap
-
-- Expand guard coverage with configurable thresholds and override UX.
-- Integrate local ASR pipeline when hardware allows faster-whisper initialization.
-- Add end-to-end perf harness for CPU-only clinics.
-
-See `docs/` for the runbook, safety policies, model guidance, and change log.
+## Contributions & Extensibility
+Plan packs, templates, and guard policies are declarative so that clinical teams can adjust workflows without modifying core code. Additional languages can be enabled by adding templates and updating `config.yaml`.

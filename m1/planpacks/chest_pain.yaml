@@ -1,0 +1,20 @@
+metadata:
+  id: chest_pain
+  title: Chest Pain Initial Evaluation
+  version: 0.1.0
+
+checklist:
+  - Verify vital signs and telemetry
+  - Obtain ECG within 10 minutes
+  - Order troponin and CBC
+  - Assess for anticoagulation contraindications
+  - Document chest pain characteristics (OPQRST)
+
+contingencies:
+  - condition: hemodynamic_instability
+    action: Activate rapid response team and notify cardiology
+  - condition: elevated_troponin
+    action: Initiate ACS pathway and consult cardiology
+
+notes: |
+  This plan pack favours conservative evaluation. Escalate to attending if pain persists or vitals destabilize.

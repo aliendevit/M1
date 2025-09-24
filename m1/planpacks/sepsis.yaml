@@ -1,0 +1,20 @@
+metadata:
+  id: sepsis
+  title: Sepsis Bundle
+  version: 0.1.0
+
+checklist:
+  - Measure lactate level
+  - Obtain blood cultures prior to antibiotics
+  - Administer broad-spectrum antibiotics within 1 hour
+  - Begin fluid resuscitation 30 mL/kg crystalloid
+  - Apply vasopressors if MAP < 65 mmHg after fluids
+
+contingencies:
+  - condition: persistent_hypotension
+    action: Initiate vasopressors and call critical care
+  - condition: rising_lactate
+    action: Repeat lactate in 2 hours and reassess volume status
+
+notes: |
+  Bundle adheres to Surviving Sepsis guidelines. Document rationale for deviation and notify care team.
