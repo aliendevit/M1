@@ -1,1 +1,4 @@
-"""ASR helpers."""\nfrom .service import ASRService, TranscriptSegment\n\n__all__ = ["ASRService", "TranscriptSegment"]
+"""ASR helpers."""
+from .service import ASRService, TranscriptSegment
+
+__all__ = ["ASRService", "TranscriptSegment"]
