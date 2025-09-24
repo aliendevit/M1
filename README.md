@@ -46,6 +46,9 @@ pytest -q
 - `m1/guards/service.py` - Guard policies enforcing conservative clinical behavior.
 - `m1/ui/app.py` - PyQt5 application for note composition and export.
 - `m1/templates/` - Deterministic Jinja2 templates for note, handoff, and discharge.
+- `m1/asr/service.py` - faster-whisper transcription service.
+- `m1/export/exporter.py` - PDF/RTF exporter shell.
+- `m1/fhir/reader.py` - FHIR bundle reader helpers.
 - `m1/config.py` - Layered configuration loader.
 - `m1/defaults/config.yaml` - Packaged baseline configuration.
 - `m1/fhir/slice.py` - FHIR R4 slicing helpers for bundle ingestion.
@@ -77,3 +80,14 @@ MinuteOne applies layered configuration so deployments inherit sane defaults whi
 6. Environment variables prefixed with `M1_` (e.g. `M1_CACHE_DB`, `M1_LLM_THREADS`)
 
 Use `M1_CACHE_DB` or `M1_LLM_THREADS` to override individual settings without editing files.
+## API Routes
+- `GET /health` - readiness probe.
+- `POST /ingest` - transcribes and persists visit bundle.
+- `POST /extract/visit` - returns structured VisitJSON.
+- `GET /facts/context` - fetches cached clinical snippets.
+- `POST /compose/{note|handoff|discharge}` - renders templates.
+- `POST /suggest/planpack` - returns plan pack guidance.
+- `POST /chips/resolve` - scores chips.
+- `GET /evidence/{patient_id}` - retrieves structured evidence.
+- `POST /export` - emits PDF/RTF artifacts.
+- `GET /metrics/session` - lightweight telemetry stub.

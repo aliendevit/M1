@@ -1,0 +1,5 @@
+# Instrucciones de Alta (Español)
+
+- Resumen del diagnóstico: {% if bundle.sections.structured.problems %}{{ bundle.sections.structured.problems | join(", ") }}{% else %}Sin diagnóstico documentado{% endif %}.
+- Medicamentos a continuar: {% if bundle.sections.structured.medications %}{{ bundle.sections.structured.medications | join(", ") }}{% else %}Ninguno documentado{% endif %}.
+- Plan de seguimiento: {% if bundle.sections.structured.plan %}{{ bundle.sections.structured.plan | join("; ") }}{% else %}Siga las indicaciones del médico{% endif %}.

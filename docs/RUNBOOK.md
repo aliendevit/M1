@@ -54,3 +54,12 @@ pytest -q
 6. Environment variables prefixed with `M1_`
 
 Example: `set M1_CACHE_DB=D:\\data\\cache.db` to point the cache at a different location for a single session.
+
+## API Operations
+```bash
+http POST :8000/extract/visit transcript='Chest pain HR 110' patient_id=demo
+http GET :8000/facts/context patient_id==demo
+http POST :8000/compose/note patient_id=demo template=note bundle:=@demo/patient_bundle.json
+http POST :8000/suggest/planpack planpack_id=chest_pain
+http POST :8000/export patient_id=demo format=pdf bundle:=@demo/patient_bundle.json
+```

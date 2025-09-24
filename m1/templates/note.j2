@@ -1,0 +1,32 @@
+# SOAP Note
+
+## Subjective
+{{ bundle.sections.subjective.transcript | default("No transcript", true) }}
+
+## Objective
+{% if bundle.sections.structured.vitals %}
+- Vitals:
+{% for key, value in bundle.sections.structured.vitals.items() %}
+  - {{ key|replace("_", " ")|title }}: {{ value }}
+{% endfor %}
+{% else %}
+- No vitals captured.
+{% endif %}
+
+## Assessment
+{% if bundle.sections.structured.problems %}
+{% for problem in bundle.sections.structured.problems %}
+- {{ problem|capitalize }}
+{% endfor %}
+{% else %}
+- Pending assessment.
+{% endif %}
+
+## Plan
+{% if bundle.sections.structured.plan %}
+{% for item in bundle.sections.structured.plan %}
+- {{ item }}
+{% endfor %}
+{% else %}
+- Awaiting plan details.
+{% endif %}

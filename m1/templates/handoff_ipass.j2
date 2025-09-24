@@ -1,0 +1,29 @@
+# I-PASS Handoff
+
+## Illness Severity
+{{ illness_severity | default("Stable") }}
+
+## Patient Summary
+{{ bundle.sections.subjective.transcript | default("No summary", true) }}
+
+## Action List
+{% if bundle.sections.structured.plan %}
+{% for item in bundle.sections.structured.plan %}
+- {{ item }}
+{% endfor %}
+{% else %}
+- No active actions documented.
+{% endif %}
+
+## Situation Awareness
+{% if bundle.sections.structured.problems %}
+Key problems:
+{% for problem in bundle.sections.structured.problems %}
+- {{ problem|capitalize }}
+{% endfor %}
+{% else %}
+- No problems enumerated.
+{% endif %}
+
+## Synthesis by Receiver
+Pending receiver acknowledgement.

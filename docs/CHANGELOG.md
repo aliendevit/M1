@@ -8,3 +8,4 @@
 - Add pytest suite covering extraction, guards, and exports
 - Introduce layered configuration loader with packaged defaults
 - Stub FHIR slicing helpers with contract tests and documentation
+- Add compliance API routes, ASR wrapper, exporter, and chart cache deltas
