@@ -1,0 +1,20 @@
+metadata:
+  id: seizure
+  title: Breakthrough Seizure Management
+  version: 0.1.0
+
+checklist:
+  - Ensure airway protection and lateral positioning
+  - Check point-of-care glucose
+  - Review antiepileptic medication adherence
+  - Order stat electrolytes and AED levels if indicated
+  - Document witnessed seizure activity duration and characteristics
+
+contingencies:
+  - condition: status_epilepticus
+    action: Follow hospital protocol and escalate to ICU
+  - condition: abnormal_glucose
+    action: Correct hypoglycemia or hyperglycemia per protocol
+
+notes: |
+  Maintain seizure precautions at bedside. Notify neurology for recurrent events or abnormal studies.

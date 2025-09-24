@@ -1,0 +1,19 @@
+{
+  "patient_id": "demo-chest-pain",
+  "transcript": "Patient reports chest pain radiating to left arm for 2 hours. HR 110, BP 150/90, temp 37.4. Plan: admit to telemetry and trend troponin. Aspirin taken prior to arrival.",
+  "sections": {
+    "subjective": {
+      "transcript": "Patient reports chest pain radiating to left arm for 2 hours."
+    },
+    "structured": {
+      "problems": ["chest pain"],
+      "medications": ["aspirin"],
+      "vitals": {
+        "heart_rate": "110",
+        "blood_pressure": "150/90",
+        "temperature": "37.4"
+      },
+      "plan": ["Admit to telemetry", "Trend troponin"]
+    }
+  }
+}

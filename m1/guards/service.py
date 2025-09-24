@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List
+from typing import Dict, List
 
 
 @dataclass(slots=True)
@@ -46,13 +46,17 @@ class GuardService:
     def evaluate(self, bundle: Dict[str, object]) -> GuardDecision:
         transcript = self._transcript(bundle)
         lowered = transcript.lower()
-        for term in self.config.hard_blocks:
-            if term.lower() in lowered:
-                return GuardDecision(
-                    blocked=True,
-                    reason=f"Manual override required for high-risk term: '{term}'",
-                    flags=[term],
-                )
+
+        matches = [term for term in self.config.hard_blocks if term.lower() in lowered]
+        if matches:
+            ordered = sorted(matches, key=len, reverse=True)
+            primary = ordered[0]
+            return GuardDecision(
+                blocked=True,
+                reason=f"Manual override required for high-risk term: '{primary}'",
+                flags=ordered,
+            )
+
         flags = [term for term in self.config.soft_flags if term.lower() in lowered]
         return GuardDecision(blocked=False, reason=None, flags=flags)
 

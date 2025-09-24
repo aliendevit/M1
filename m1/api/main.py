@@ -1,9 +1,7 @@
 """FastAPI application for the MinuteOne backend."""
 from __future__ import annotations
 
-import os
 from functools import lru_cache
-from pathlib import Path
 from typing import AsyncIterator
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -26,8 +24,7 @@ from .models import (
 
 @lru_cache(maxsize=1)
 def load_config() -> Config:
-    config_path = os.environ.get("M1_CONFIG")
-    return Config.load(path=Path(config_path) if config_path else None)
+    return Config.load()
 
 
 @lru_cache(maxsize=1)
